@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
-import { PROGRAM_INFO, DAYS_OF_WEEK } from '@/constants/workouts';
+import { PROGRAM_INFO, SKILL_INFO, DAYS_OF_WEEK, SkillLevel } from '@/constants/workouts';
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon first
 
@@ -26,6 +26,7 @@ export default function SettingsScreen() {
   const { profile, workoutLogs, bodyEntries, resetProfile, setProfile, customWorkoutPlan, resetWorkoutPlan } = useAppContext();
 
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [draftDays, setDraftDays] = useState<Set<number>>(new Set(profile?.preferredDays ?? []));
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -50,6 +51,13 @@ export default function SettingsScreen() {
     await setProfile({ ...profile, preferredDays: sorted, daysPerWeek: sorted.length });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowSchedulePicker(false);
+  };
+
+  const handleSaveSkill = async (skill: SkillLevel) => {
+    if (!profile) return;
+    await setProfile({ ...profile, skillLevel: skill });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowSkillPicker(false);
   };
 
   const handleChangeProgram = () => {
@@ -129,6 +137,28 @@ export default function SettingsScreen() {
                 <View style={styles.actionLeft}>
                   <Ionicons name="refresh-outline" size={20} color={colors.foreground} />
                   <Text style={[styles.actionLabel, { color: colors.foreground }]}>Change Program</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Skill Level */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>FITNESS LEVEL</Text>
+              <View style={styles.scheduleRow}>
+                <Ionicons name={SKILL_INFO[profile.skillLevel ?? 'intermediate'].icon as any} size={18} color={programInfo.color} />
+                <View style={styles.scheduleInfo}>
+                  <Text style={[styles.scheduleDays, { color: colors.foreground }]}>{SKILL_INFO[profile.skillLevel ?? 'intermediate'].label}</Text>
+                  <Text style={[styles.scheduleSub, { color: colors.mutedForeground }]}>{SKILL_INFO[profile.skillLevel ?? 'intermediate'].subtitle}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowSkillPicker(true)}
+                style={[styles.actionRow, { borderTopColor: colors.border }]}
+              >
+                <View style={styles.actionLeft}>
+                  <Ionicons name="trending-up-outline" size={20} color={colors.foreground} />
+                  <Text style={[styles.actionLabel, { color: colors.foreground }]}>Change Fitness Level</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
@@ -214,6 +244,46 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
+      {/* Skill Level Picker Modal */}
+      <Modal visible={showSkillPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowSkillPicker(false)}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowSkillPicker(false)}>
+              <Text style={[styles.modalCancel, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>Fitness Level</Text>
+            <View style={{ width: 50 }} />
+          </View>
+          <View style={[styles.modalBody, { gap: 12 }]}>
+            <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
+              Changing this reshapes your workout complexity and WOD rotation immediately.
+            </Text>
+            {(['novice', 'intermediate', 'advanced'] as const).map(skill => {
+              const info = SKILL_INFO[skill];
+              const isCurrent = profile?.skillLevel === skill;
+              const color = programInfo?.color ?? colors.primary;
+              return (
+                <Pressable
+                  key={skill}
+                  onPress={() => handleSaveSkill(skill)}
+                  style={({ pressed }) => [
+                    styles.skillCard,
+                    { backgroundColor: isCurrent ? color : colors.card, borderColor: isCurrent ? color : colors.border, opacity: pressed ? 0.85 : 1 },
+                  ]}
+                >
+                  <Ionicons name={info.icon as any} size={22} color={isCurrent ? '#fff' : color} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.skillLabel, { color: isCurrent ? '#fff' : colors.foreground }]}>{info.label}</Text>
+                    <Text style={[styles.skillSub, { color: isCurrent ? 'rgba(255,255,255,0.75)' : colors.mutedForeground }]} numberOfLines={2}>{info.description}</Text>
+                  </View>
+                  {isCurrent && <Ionicons name="checkmark-circle" size={22} color="#fff" />}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
+
       {/* Schedule Picker Modal */}
       <Modal visible={showSchedulePicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowSchedulePicker(false)}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
@@ -297,4 +367,7 @@ const styles = StyleSheet.create({
   dayText: { fontSize: 13, fontWeight: '700' },
   summaryCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1 },
   summaryText: { flex: 1, fontSize: 14, lineHeight: 20 },
+  skillCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 14, borderWidth: 1.5 },
+  skillLabel: { fontSize: 16, fontWeight: '700', marginBottom: 3 },
+  skillSub: { fontSize: 12, lineHeight: 17 },
 });

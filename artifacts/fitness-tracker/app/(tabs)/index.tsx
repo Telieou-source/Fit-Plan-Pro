@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
-import { PROGRAM_INFO, WorkoutDay, DAYS_OF_WEEK } from "@/constants/workouts";
+import { PROGRAM_INFO, SKILL_INFO, WorkoutDay, DAYS_OF_WEEK } from "@/constants/workouts";
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
@@ -143,7 +143,7 @@ const planStyles = StyleSheet.create({
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, effectivePlan, workoutLogs, bodyEntries, getCurrentWorkoutDayIndex, isRestDay } = useAppContext();
+  const { profile, effectivePlan, workoutLogs, bodyEntries, getCurrentWorkoutDayIndex, isRestDay, weekNumber } = useAppContext();
 
   const dayIndex = getCurrentWorkoutDayIndex();
   const restDay = isRestDay();
@@ -226,6 +226,16 @@ export default function HomeScreen() {
             <Text style={[styles.scheduleBadgeText, { color: colors.mutedForeground }]}>{scheduleSummary}</Text>
           </View>
         )}
+        {profile.skillLevel && (
+          <View style={[styles.scheduleBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name={SKILL_INFO[profile.skillLevel].icon as any} size={13} color={colors.mutedForeground} />
+            <Text style={[styles.scheduleBadgeText, { color: colors.mutedForeground }]}>{SKILL_INFO[profile.skillLevel].label}</Text>
+          </View>
+        )}
+        <View style={[styles.scheduleBadge, { backgroundColor: accentColor + "15", borderColor: accentColor + "40" }]}>
+          <Ionicons name="refresh-outline" size={13} color={accentColor} />
+          <Text style={[styles.scheduleBadgeText, { color: accentColor }]}>Week {weekNumber + 1}</Text>
+        </View>
       </View>
 
       {/* Stats row */}

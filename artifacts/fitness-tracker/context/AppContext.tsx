@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { generateWorkoutPlan, ProgramType, WorkoutDay } from '@/constants/workouts';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { generateWorkoutPlan, ProgramType, SkillLevel, WorkoutDay } from '@/constants/workouts';
 
-export type { ProgramType };
+export type { ProgramType, SkillLevel };
 
 export interface UserProfile {
   programType: ProgramType;
+  skillLevel: SkillLevel;
   daysPerWeek: number;
   preferredDays: number[]; // 0=Sun, 1=Mon ... 6=Sat; sorted
   startDate: string;
@@ -45,12 +46,13 @@ export interface BodyEntry {
 
 interface AppContextType {
   profile: UserProfile | null;
-  workoutPlan: WorkoutDay[];         // base generated plan
+  workoutPlan: WorkoutDay[];            // base generated plan (current week)
   customWorkoutPlan: WorkoutDay[] | null; // user-edited overrides
-  effectivePlan: WorkoutDay[];       // customWorkoutPlan ?? workoutPlan
+  effectivePlan: WorkoutDay[];          // customWorkoutPlan ?? workoutPlan
   workoutLogs: WorkoutLog[];
   bodyEntries: BodyEntry[];
   isLoaded: boolean;
+  weekNumber: number;                   // how many full weeks completed
   setProfile: (profile: UserProfile) => Promise<void>;
   saveWorkoutLog: (log: WorkoutLog) => Promise<void>;
   saveBodyEntry: (entry: BodyEntry) => Promise<void>;
@@ -73,7 +75,6 @@ const KEYS = {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfileState] = useState<UserProfile | null>(null);
-  const [workoutPlan, setWorkoutPlan] = useState<WorkoutDay[]>([]);
   const [customWorkoutPlan, setCustomWorkoutPlan] = useState<WorkoutDay[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [bodyEntries, setBodyEntries] = useState<BodyEntry[]>([]);
@@ -90,10 +91,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
         if (profileRaw) {
           const p: UserProfile = JSON.parse(profileRaw);
-          // back-compat: if old profile has no preferredDays, derive from daysPerWeek
           if (!p.preferredDays) p.preferredDays = [];
+          if (!p.skillLevel) p.skillLevel = 'intermediate'; // back-compat
           setProfileState(p);
-          setWorkoutPlan(generateWorkoutPlan(p.programType, p.daysPerWeek));
         }
         if (logsRaw) setWorkoutLogs(JSON.parse(logsRaw));
         if (bodyRaw) setBodyEntries(JSON.parse(bodyRaw));
@@ -103,12 +103,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  // Compute week number from completed workouts
+  const weekNumber = useMemo(() => {
+    if (!profile) return 0;
+    const completed = workoutLogs.filter(l => l.completed).length;
+    return Math.floor(completed / Math.max(1, profile.daysPerWeek));
+  }, [workoutLogs, profile]);
+
+  // Generated plan rotates by week number and skill level
+  const workoutPlan = useMemo(() => {
+    if (!profile) return [];
+    return generateWorkoutPlan(profile.programType, profile.daysPerWeek, profile.skillLevel, weekNumber);
+  }, [profile, weekNumber]);
+
   const effectivePlan: WorkoutDay[] = customWorkoutPlan ?? workoutPlan;
 
   const setProfile = useCallback(async (p: UserProfile) => {
     await AsyncStorage.setItem(KEYS.PROFILE, JSON.stringify(p));
     setProfileState(p);
-    setWorkoutPlan(generateWorkoutPlan(p.programType, p.daysPerWeek));
     // clear custom plan on program change
     await AsyncStorage.removeItem(KEYS.CUSTOM_PLAN);
     setCustomWorkoutPlan(null);
@@ -144,8 +156,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!profile) return 0;
     const { preferredDays, daysPerWeek } = profile;
     if (!preferredDays?.length) {
-      // fallback: sequential based on completed count
-      return workoutLogs.filter(l => l.completed).length % daysPerWeek;
+      const completed = workoutLogs.filter(l => l.completed).length;
+      return completed % daysPerWeek;
     }
     const todayDow = new Date().getDay();
     const pos = preferredDays.indexOf(todayDow);
@@ -171,9 +183,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetProfile = useCallback(async () => {
-    await AsyncStorage.multiRemove([KEYS.PROFILE, KEYS.WORKOUT_LOGS, KEYS.BODY_ENTRIES, KEYS.CUSTOM_PLAN]);
+    await AsyncStorage.multiRemove(Object.values(KEYS));
     setProfileState(null);
-    setWorkoutPlan([]);
     setCustomWorkoutPlan(null);
     setWorkoutLogs([]);
     setBodyEntries([]);
@@ -182,7 +193,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       profile, workoutPlan, customWorkoutPlan, effectivePlan,
-      workoutLogs, bodyEntries, isLoaded,
+      workoutLogs, bodyEntries, isLoaded, weekNumber,
       setProfile, saveWorkoutLog, saveBodyEntry, deleteBodyEntry,
       getCurrentWorkoutDayIndex, isRestDay,
       updateWorkoutDay, resetWorkoutPlan, resetProfile,
