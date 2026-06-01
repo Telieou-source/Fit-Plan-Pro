@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "D8AdK3Fhj39bPAaz31qVG"
+uri = "file://artifacts/fitness-tracker/assets/images/icon.png"
+type = "image"
+title = "fittrack app icon"
