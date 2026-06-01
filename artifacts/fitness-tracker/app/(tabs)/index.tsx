@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
-import { PROGRAM_INFO, WorkoutDay } from "@/constants/workouts";
+import { PROGRAM_INFO, WorkoutDay, DAYS_OF_WEEK } from "@/constants/workouts";
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
@@ -33,35 +33,27 @@ interface PlanDayCardProps {
   isCurrentDay: boolean;
   isCompleted: boolean;
   accentColor: string;
+  onEdit: () => void;
 }
 
-function PlanDayCard({ day, index, isCurrentDay, isCompleted, accentColor }: PlanDayCardProps) {
+function PlanDayCard({ day, index, isCurrentDay, isCompleted, accentColor, onEdit }: PlanDayCardProps) {
   const colors = useColors();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(isCurrentDay);
 
   return (
-    <View
-      style={[
-        planStyles.card,
-        {
-          backgroundColor: isCurrentDay ? accentColor + "12" : colors.card,
-          borderColor: isCurrentDay ? accentColor : colors.border,
-        },
-      ]}
-    >
+    <View style={[
+      planStyles.card,
+      { backgroundColor: isCurrentDay ? accentColor + "12" : colors.card, borderColor: isCurrentDay ? accentColor : colors.border },
+    ]}>
       <Pressable
-        onPress={() => {
-          Haptics.selectionAsync();
-          setExpanded(e => !e);
-        }}
+        onPress={() => { Haptics.selectionAsync(); setExpanded(e => !e); }}
         style={planStyles.cardHeader}
       >
         <View style={[planStyles.dayBadge, { backgroundColor: isCompleted ? accentColor : isCurrentDay ? accentColor + "30" : colors.secondary }]}>
-          {isCompleted ? (
-            <Ionicons name="checkmark" size={13} color="#fff" />
-          ) : (
-            <Text style={[planStyles.dayBadgeText, { color: isCurrentDay ? accentColor : colors.mutedForeground }]}>{index + 1}</Text>
-          )}
+          {isCompleted
+            ? <Ionicons name="checkmark" size={13} color="#fff" />
+            : <Text style={[planStyles.dayBadgeText, { color: isCurrentDay ? accentColor : colors.mutedForeground }]}>{index + 1}</Text>
+          }
         </View>
         <View style={planStyles.cardMeta}>
           <View style={planStyles.cardTitleRow}>
@@ -76,11 +68,14 @@ function PlanDayCard({ day, index, isCurrentDay, isCompleted, accentColor }: Pla
             {day.name} · {day.exercises.length} exercises
           </Text>
         </View>
-        <Ionicons
-          name={expanded ? "chevron-up" : "chevron-down"}
-          size={18}
-          color={colors.mutedForeground}
-        />
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation(); onEdit(); }}
+          style={[planStyles.editBtn, { backgroundColor: colors.secondary }]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="pencil-outline" size={14} color={colors.mutedForeground} />
+        </TouchableOpacity>
+        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
       </Pressable>
 
       {expanded && (
@@ -88,11 +83,8 @@ function PlanDayCard({ day, index, isCurrentDay, isCompleted, accentColor }: Pla
           <Text style={[planStyles.dayDesc, { color: colors.mutedForeground }]}>{day.description}</Text>
           {day.exercises.map((ex, i) => (
             <View
-              key={ex.id}
-              style={[
-                planStyles.exRow,
-                i < day.exercises.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-              ]}
+              key={ex.id + i}
+              style={[planStyles.exRow, i < day.exercises.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
             >
               <Text style={[planStyles.exName, { color: colors.foreground }]}>{ex.name}</Text>
               <Text style={[planStyles.exTarget, { color: colors.mutedForeground }]}>
@@ -100,15 +92,24 @@ function PlanDayCard({ day, index, isCurrentDay, isCompleted, accentColor }: Pla
               </Text>
             </View>
           ))}
-          {isCurrentDay && (
+          <View style={planStyles.exActions}>
             <TouchableOpacity
-              onPress={() => router.push("/(tabs)/workout")}
-              style={[planStyles.goBtn, { backgroundColor: accentColor }]}
+              onPress={onEdit}
+              style={[planStyles.editExBtn, { borderColor: colors.border }]}
             >
-              <Text style={planStyles.goBtnText}>Go to Workout</Text>
-              <Ionicons name="arrow-forward" size={15} color="#fff" />
+              <Ionicons name="pencil-outline" size={14} color={colors.mutedForeground} />
+              <Text style={[planStyles.editExBtnText, { color: colors.mutedForeground }]}>Customize</Text>
             </TouchableOpacity>
-          )}
+            {isCurrentDay && (
+              <TouchableOpacity
+                onPress={() => router.push("/(tabs)/workout")}
+                style={[planStyles.goBtn, { backgroundColor: accentColor }]}
+              >
+                <Text style={planStyles.goBtnText}>Go to Workout</Text>
+                <Ionicons name="arrow-forward" size={14} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
     </View>
@@ -117,7 +118,7 @@ function PlanDayCard({ day, index, isCurrentDay, isCompleted, accentColor }: Pla
 
 const planStyles = StyleSheet.create({
   card: { borderRadius: 14, borderWidth: 1.5, overflow: "hidden" },
-  cardHeader: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
+  cardHeader: { flexDirection: "row", alignItems: "center", padding: 14, gap: 10 },
   dayBadge: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   dayBadgeText: { fontSize: 13, fontWeight: "700" },
   cardMeta: { flex: 1 },
@@ -126,40 +127,33 @@ const planStyles = StyleSheet.create({
   todayPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   todayPillText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.5 },
   cardName: { fontSize: 12, marginTop: 2 },
+  editBtn: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   exerciseList: { borderTopWidth: 1, paddingHorizontal: 14, paddingBottom: 14 },
   dayDesc: { fontSize: 13, lineHeight: 18, paddingVertical: 10 },
   exRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
   exName: { fontSize: 14, fontWeight: "500", flex: 1 },
   exTarget: { fontSize: 13, fontWeight: "500" },
-  goBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderRadius: 10, marginTop: 10 },
-  goBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  exActions: { flexDirection: "row", gap: 8, marginTop: 10 },
+  editExBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  editExBtnText: { fontSize: 13, fontWeight: "500" },
+  goBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 9, borderRadius: 8 },
+  goBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
 });
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const {
-    profile,
-    workoutPlan,
-    workoutLogs,
-    bodyEntries,
-    getCurrentWorkoutDayIndex,
-  } = useAppContext();
+  const { profile, effectivePlan, workoutLogs, bodyEntries, getCurrentWorkoutDayIndex, isRestDay } = useAppContext();
 
   const dayIndex = getCurrentWorkoutDayIndex();
-  const todayWorkout = workoutPlan[dayIndex] ?? null;
+  const restDay = isRestDay();
+  const todayWorkout = !restDay && dayIndex >= 0 ? effectivePlan[dayIndex] ?? null : null;
   const accentColor = profile ? PROGRAM_INFO[profile.programType].color : colors.primary;
 
-  const completedLogs = useMemo(
-    () => workoutLogs.filter((l) => l.completed),
-    [workoutLogs]
-  );
+  const completedLogs = useMemo(() => workoutLogs.filter(l => l.completed), [workoutLogs]);
 
   const todayLog = useMemo(
-    () =>
-      workoutLogs.find(
-        (l) => l.date === todayStr() && l.workoutDayIndex === dayIndex
-      ) ?? null,
+    () => workoutLogs.find(l => l.date === todayStr() && l.workoutDayIndex === dayIndex) ?? null,
     [workoutLogs, dayIndex]
   );
 
@@ -177,8 +171,14 @@ export default function HomeScreen() {
     return count;
   }, [completedLogs]);
 
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  // Show preferred training days as short labels
+  const scheduleSummary = useMemo(() => {
+    if (!profile?.preferredDays?.length) return null;
+    return profile.preferredDays.map(d => DAYS_OF_WEEK[d]).join(' · ');
+  }, [profile]);
+
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   if (!profile) {
     return (
@@ -193,10 +193,7 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={{ backgroundColor: colors.background }}
-      contentContainerStyle={[
-        styles.scroll,
-        { paddingTop: topPad + 16, paddingBottom: bottomPad + 80 },
-      ]}
+      contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: bottomPad + 80 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
@@ -213,22 +210,22 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Program badge */}
-      <View style={[styles.programBadge, { backgroundColor: programInfo.color + "18", borderColor: programInfo.color + "40" }]}>
-        <Ionicons
-          name={
-            profile.programType === "muscle_building"
-              ? "barbell-outline"
-              : profile.programType === "crossfit"
-              ? "flame-outline"
-              : "pulse-outline"
-          }
-          size={16}
-          color={programInfo.color}
-        />
-        <Text style={[styles.programBadgeText, { color: programInfo.color }]}>
-          {programInfo.label} · {profile.daysPerWeek} days/week
-        </Text>
+      {/* Program + schedule badge */}
+      <View style={styles.badgeRow}>
+        <View style={[styles.programBadge, { backgroundColor: programInfo.color + "18", borderColor: programInfo.color + "40" }]}>
+          <Ionicons
+            name={profile.programType === "muscle_building" ? "barbell-outline" : profile.programType === "crossfit" ? "flame-outline" : "pulse-outline"}
+            size={14}
+            color={programInfo.color}
+          />
+          <Text style={[styles.programBadgeText, { color: programInfo.color }]}>{programInfo.label}</Text>
+        </View>
+        {scheduleSummary && (
+          <View style={[styles.scheduleBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="calendar-outline" size={13} color={colors.mutedForeground} />
+            <Text style={[styles.scheduleBadgeText, { color: colors.mutedForeground }]}>{scheduleSummary}</Text>
+          </View>
+        )}
       </View>
 
       {/* Stats row */}
@@ -236,8 +233,8 @@ export default function HomeScreen() {
         {[
           { label: "WORKOUTS", value: completedLogs.length, icon: "checkmark-circle-outline" },
           { label: "STREAK", value: streak, icon: "flame-outline" },
-          { label: "DAY", value: `${dayIndex + 1}/${profile.daysPerWeek}`, icon: "calendar-outline" },
-        ].map((stat) => (
+          { label: "PLAN DAY", value: dayIndex >= 0 ? `${dayIndex + 1}/${profile.daysPerWeek}` : "—", icon: "calendar-outline" },
+        ].map(stat => (
           <View key={stat.label} style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name={stat.icon as any} size={18} color={accentColor} />
             <Text style={[styles.statValue, { color: colors.foreground }]}>{stat.value}</Text>
@@ -246,8 +243,21 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Today's workout card */}
-      {todayWorkout && (
+      {/* Today card — rest day or workout */}
+      {restDay ? (
+        <View style={[styles.restCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Ionicons name="moon-outline" size={32} color={colors.mutedForeground} />
+          <View style={styles.restText}>
+            <Text style={[styles.restTitle, { color: colors.foreground }]}>Rest Day</Text>
+            <Text style={[styles.restSub, { color: colors.mutedForeground }]}>
+              Today is not a training day. Recovery is part of the plan.
+            </Text>
+            {scheduleSummary && (
+              <Text style={[styles.restNext, { color: accentColor }]}>Training days: {scheduleSummary}</Text>
+            )}
+          </View>
+        </View>
+      ) : todayWorkout ? (
         <Pressable
           onPress={() => router.push("/(tabs)/workout")}
           style={({ pressed }) => [
@@ -257,19 +267,14 @@ export default function HomeScreen() {
         >
           <View style={styles.workoutCardTop}>
             <View>
-              <Text style={styles.workoutCardLabel}>
-                {todayLog?.completed ? "COMPLETED" : "TODAY'S WORKOUT"}
-              </Text>
+              <Text style={styles.workoutCardLabel}>{todayLog?.completed ? "COMPLETED" : "TODAY'S WORKOUT"}</Text>
               <Text style={styles.workoutCardTitle}>{todayWorkout.focus}</Text>
               <Text style={styles.workoutCardSub}>{todayWorkout.name}</Text>
             </View>
-            <View>
-              {todayLog?.completed ? (
-                <Ionicons name="checkmark-circle" size={44} color="rgba(255,255,255,0.9)" />
-              ) : (
-                <Ionicons name="play-circle" size={44} color="rgba(255,255,255,0.9)" />
-              )}
-            </View>
+            {todayLog?.completed
+              ? <Ionicons name="checkmark-circle" size={44} color="rgba(255,255,255,0.9)" />
+              : <Ionicons name="play-circle" size={44} color="rgba(255,255,255,0.9)" />
+            }
           </View>
           <Text style={styles.workoutCardDesc} numberOfLines={2}>{todayWorkout.description}</Text>
           <View style={styles.workoutCardMeta}>
@@ -277,21 +282,22 @@ export default function HomeScreen() {
             <Text style={styles.workoutCardMetaText}>{todayWorkout.exercises.length} exercises</Text>
           </View>
         </Pressable>
-      )}
+      ) : null}
 
       {/* Full plan preview */}
       <Text style={[styles.sectionHeader, { color: colors.foreground }]}>Your Full Plan</Text>
       <View style={styles.planList}>
-        {workoutPlan.map((day, i) => {
-          const isCompleted = completedLogs.some(l => l.workoutDayIndex === i);
+        {effectivePlan.map((day, i) => {
+          const isDone = completedLogs.some(l => l.workoutDayIndex === i);
           return (
             <PlanDayCard
               key={day.id}
               day={day}
               index={i}
-              isCurrentDay={i === dayIndex}
-              isCompleted={isCompleted}
+              isCurrentDay={!restDay && i === dayIndex}
+              isCompleted={isDone}
               accentColor={accentColor}
+              onEdit={() => router.push(`/edit-workout/${i}` as any)}
             />
           );
         })}
@@ -331,16 +337,24 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyText: { fontSize: 16 },
   scroll: { paddingHorizontal: 16 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 },
   greeting: { fontSize: 14, fontWeight: "500", marginBottom: 2 },
   appName: { fontSize: 30, fontWeight: "800" },
   settingsBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  programBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, alignSelf: "flex-start", marginBottom: 18 },
-  programBadgeText: { fontSize: 13, fontWeight: "700" },
+  badgeRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 16 },
+  programBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  programBadgeText: { fontSize: 12, fontWeight: "700" },
+  scheduleBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  scheduleBadgeText: { fontSize: 12, fontWeight: "600" },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   statCard: { flex: 1, alignItems: "center", padding: 12, borderRadius: 14, borderWidth: 1, gap: 4 },
   statValue: { fontSize: 20, fontWeight: "800" },
   statLabel: { fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
+  restCard: { flexDirection: "row", alignItems: "center", gap: 16, padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 20 },
+  restText: { flex: 1 },
+  restTitle: { fontSize: 20, fontWeight: "700", marginBottom: 4 },
+  restSub: { fontSize: 13, lineHeight: 18, marginBottom: 6 },
+  restNext: { fontSize: 12, fontWeight: "600" },
   workoutCard: { borderRadius: 20, padding: 20, marginBottom: 20, gap: 10 },
   workoutCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   workoutCardLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1, color: "rgba(255,255,255,0.75)", marginBottom: 4 },

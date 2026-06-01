@@ -1,33 +1,61 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
-import { PROGRAM_INFO } from '@/constants/workouts';
+import { PROGRAM_INFO, DAYS_OF_WEEK } from '@/constants/workouts';
+
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon first
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, workoutLogs, bodyEntries, resetProfile } = useAppContext();
+  const { profile, workoutLogs, bodyEntries, resetProfile, setProfile, customWorkoutPlan, resetWorkoutPlan } = useAppContext();
+
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [draftDays, setDraftDays] = useState<Set<number>>(new Set(profile?.preferredDays ?? []));
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
+  const toggleDay = (dow: number) => {
+    Haptics.selectionAsync();
+    setDraftDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dow)) {
+        if (next.size > 1) next.delete(dow);
+      } else {
+        next.add(dow);
+      }
+      return next;
+    });
+  };
+
+  const handleSaveSchedule = async () => {
+    if (!profile) return;
+    const sorted = Array.from(draftDays).sort((a, b) => a - b);
+    await setProfile({ ...profile, preferredDays: sorted, daysPerWeek: sorted.length });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowSchedulePicker(false);
+  };
+
   const handleChangeProgram = () => {
     Alert.alert(
       'Change Program',
-      'This will clear your current workout logs. Body measurements will be kept. Continue?',
+      'This will clear your workout logs and custom plan. Body measurements are kept.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -43,7 +71,28 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleResetPlan = () => {
+    Alert.alert(
+      'Reset Custom Plan',
+      'Restore all workout days to their original exercises?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await resetWorkoutPlan();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
+
   const programInfo = profile ? PROGRAM_INFO[profile.programType] : null;
+  const scheduleSummary = profile?.preferredDays?.length
+    ? profile.preferredDays.map(d => DAYS_OF_WEEK[d]).join(', ')
+    : `${profile?.daysPerWeek ?? '?'} days/week`;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -60,69 +109,99 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {profile && programInfo && (
-          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>CURRENT PROGRAM</Text>
-            <View style={styles.programRow}>
-              <View style={[styles.programDot, { backgroundColor: programInfo.color }]} />
-              <View style={styles.programInfo}>
-                <Text style={[styles.programName, { color: colors.foreground }]}>{programInfo.label}</Text>
-                <Text style={[styles.programMeta, { color: colors.mutedForeground }]}>
-                  {profile.daysPerWeek} days per week · {workoutLogs.filter(l => l.completed).length} workouts completed
-                </Text>
+          <>
+            {/* Program */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>PROGRAM</Text>
+              <View style={styles.programRow}>
+                <View style={[styles.programDot, { backgroundColor: programInfo.color }]} />
+                <View style={styles.programInfo}>
+                  <Text style={[styles.programName, { color: colors.foreground }]}>{programInfo.label}</Text>
+                  <Text style={[styles.programMeta, { color: colors.mutedForeground }]}>
+                    {workoutLogs.filter(l => l.completed).length} workouts completed
+                  </Text>
+                </View>
               </View>
+              <TouchableOpacity
+                onPress={handleChangeProgram}
+                style={[styles.actionRow, { borderTopColor: colors.border }]}
+              >
+                <View style={styles.actionLeft}>
+                  <Ionicons name="refresh-outline" size={20} color={colors.foreground} />
+                  <Text style={[styles.actionLabel, { color: colors.foreground }]}>Change Program</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              onPress={handleChangeProgram}
-              style={[styles.actionRow, { borderTopColor: colors.border }]}
-            >
-              <View style={styles.actionLeft}>
-                <Ionicons name="refresh-outline" size={20} color={colors.foreground} />
-                <Text style={[styles.actionLabel, { color: colors.foreground }]}>Change Program</Text>
+            {/* Schedule */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SCHEDULE</Text>
+              <View style={styles.scheduleRow}>
+                <Ionicons name="calendar-outline" size={18} color={programInfo.color} />
+                <View style={styles.scheduleInfo}>
+                  <Text style={[styles.scheduleDays, { color: colors.foreground }]}>{scheduleSummary}</Text>
+                  <Text style={[styles.scheduleSub, { color: colors.mutedForeground }]}>{profile.daysPerWeek} training days per week</Text>
+                </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                onPress={() => { setDraftDays(new Set(profile.preferredDays ?? [])); setShowSchedulePicker(true); }}
+                style={[styles.actionRow, { borderTopColor: colors.border }]}
+              >
+                <View style={styles.actionLeft}>
+                  <Ionicons name="calendar-outline" size={20} color={colors.foreground} />
+                  <Text style={[styles.actionLabel, { color: colors.foreground }]}>Change Training Days</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Custom plan */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>WORKOUT PLAN</Text>
+              <View style={styles.statRow}>
+                <Text style={[styles.statLabel, { color: colors.foreground }]}>Custom exercises</Text>
+                <Text style={[styles.statValue, { color: colors.mutedForeground }]}>{customWorkoutPlan ? 'Yes' : 'Using defaults'}</Text>
+              </View>
+              {customWorkoutPlan && (
+                <TouchableOpacity
+                  onPress={handleResetPlan}
+                  style={[styles.actionRow, { borderTopColor: colors.border }]}
+                >
+                  <View style={styles.actionLeft}>
+                    <Ionicons name="arrow-undo-outline" size={20} color={colors.foreground} />
+                    <Text style={[styles.actionLabel, { color: colors.foreground }]}>Reset Plan to Defaults</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
         )}
 
+        {/* Stats */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>STATS</Text>
           {[
-            { label: 'Workouts logged', value: workoutLogs.filter(l => l.completed).length },
+            { label: 'Workouts completed', value: workoutLogs.filter(l => l.completed).length },
             { label: 'Body entries', value: bodyEntries.length },
           ].map((item, i, arr) => (
-            <View
-              key={item.label}
-              style={[
-                styles.statRow,
-                i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-              ]}
-            >
+            <View key={item.label} style={[styles.statRow, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
               <Text style={[styles.statLabel, { color: colors.foreground }]}>{item.label}</Text>
               <Text style={[styles.statValue, { color: colors.mutedForeground }]}>{item.value}</Text>
             </View>
           ))}
         </View>
 
+        {/* Danger zone */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>DATA</Text>
           <TouchableOpacity
             onPress={() => {
-              Alert.alert(
-                'Clear All Data',
-                'This will permanently delete all workout logs, body entries, and your program. This cannot be undone.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete Everything',
-                    style: 'destructive',
-                    onPress: async () => {
-                      await resetProfile();
-                      router.replace('/onboarding');
-                    },
-                  },
-                ]
-              );
+              Alert.alert('Clear All Data', 'Permanently delete all logs, measurements, and your program?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete Everything', style: 'destructive', onPress: async () => { await resetProfile(); router.replace('/onboarding'); } },
+              ]);
             }}
             style={styles.actionRow}
           >
@@ -134,20 +213,58 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Schedule Picker Modal */}
+      <Modal visible={showSchedulePicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowSchedulePicker(false)}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowSchedulePicker(false)}>
+              <Text style={[styles.modalCancel, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>Training Days</Text>
+            <TouchableOpacity onPress={handleSaveSchedule}>
+              <Text style={[styles.modalSave, { color: programInfo?.color ?? colors.primary }]}>Save</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.modalBody}>
+            <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
+              Select which days of the week you train. Tap any day to toggle.
+            </Text>
+            <View style={styles.daysGrid}>
+              {DAY_ORDER.map(dow => {
+                const isOn = draftDays.has(dow);
+                const color = programInfo?.color ?? colors.primary;
+                return (
+                  <Pressable
+                    key={dow}
+                    onPress={() => toggleDay(dow)}
+                    style={({ pressed }) => [
+                      styles.dayBtn,
+                      { backgroundColor: isOn ? color : colors.card, borderColor: isOn ? color : colors.border, opacity: pressed ? 0.8 : 1 },
+                    ]}
+                  >
+                    <Text style={[styles.dayText, { color: isOn ? '#fff' : colors.foreground }]}>{DAYS_OF_WEEK[dow]}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="calendar-outline" size={18} color={programInfo?.color ?? colors.primary} />
+              <Text style={[styles.summaryText, { color: colors.mutedForeground }]}>
+                <Text style={{ color: programInfo?.color ?? colors.primary, fontWeight: '700' }}>{draftDays.size} days/week</Text>
+                {' '}— {Array.from(draftDays).sort().map(d => DAYS_OF_WEEK[d]).join(', ')}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
   backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontWeight: '700' },
   scroll: { paddingHorizontal: 16, paddingTop: 20, gap: 14 },
@@ -158,10 +275,26 @@ const styles = StyleSheet.create({
   programInfo: { flex: 1 },
   programName: { fontSize: 17, fontWeight: '700' },
   programMeta: { fontSize: 13, marginTop: 2 },
+  scheduleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  scheduleInfo: { flex: 1 },
+  scheduleDays: { fontSize: 15, fontWeight: '600' },
+  scheduleSub: { fontSize: 12, marginTop: 2 },
   actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginTop: 10, borderTopWidth: 1 },
   actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   actionLabel: { fontSize: 16, fontWeight: '500' },
   statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
   statLabel: { fontSize: 15, fontWeight: '500' },
   statValue: { fontSize: 15, fontWeight: '600' },
+  modal: { flex: 1 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 20, borderBottomWidth: 1 },
+  modalTitle: { fontSize: 17, fontWeight: '700' },
+  modalCancel: { fontSize: 16 },
+  modalSave: { fontSize: 16, fontWeight: '700' },
+  modalBody: { padding: 24 },
+  modalSub: { fontSize: 15, lineHeight: 21, marginBottom: 24 },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  dayBtn: { width: '13%', minWidth: 44, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  dayText: { fontSize: 13, fontWeight: '700' },
+  summaryCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1 },
+  summaryText: { flex: 1, fontSize: 14, lineHeight: 20 },
 });
