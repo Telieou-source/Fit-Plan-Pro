@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { PROGRAM_INFO, SKILL_INFO, WorkoutDay, DAYS_OF_WEEK } from "@/constants/workouts";
+import { openExerciseVideo } from "@/constants/exerciseLinks";
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
@@ -87,9 +88,18 @@ function PlanDayCard({ day, index, isCurrentDay, isCompleted, accentColor, onEdi
               style={[planStyles.exRow, i < day.exercises.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
             >
               <Text style={[planStyles.exName, { color: colors.foreground }]}>{ex.name}</Text>
-              <Text style={[planStyles.exTarget, { color: colors.mutedForeground }]}>
-                {ex.targetSets}×{ex.targetReps ?? ex.targetDuration}
-              </Text>
+              <View style={planStyles.exRight}>
+                <Text style={[planStyles.exTarget, { color: colors.mutedForeground }]}>
+                  {ex.targetSets}×{ex.targetReps ?? ex.targetDuration}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => openExerciseVideo(ex.name)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={[planStyles.videoBtn, { backgroundColor: accentColor + '15' }]}
+                >
+                  <Ionicons name="logo-youtube" size={13} color={accentColor} />
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
           <View style={planStyles.exActions}>
@@ -132,7 +142,9 @@ const planStyles = StyleSheet.create({
   dayDesc: { fontSize: 13, lineHeight: 18, paddingVertical: 10 },
   exRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
   exName: { fontSize: 14, fontWeight: "500", flex: 1 },
+  exRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   exTarget: { fontSize: 13, fontWeight: "500" },
+  videoBtn: { width: 26, height: 26, borderRadius: 7, alignItems: "center", justifyContent: "center" },
   exActions: { flexDirection: "row", gap: 8, marginTop: 10 },
   editExBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
   editExBtnText: { fontSize: 13, fontWeight: "500" },

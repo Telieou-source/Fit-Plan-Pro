@@ -18,6 +18,7 @@ import { useAppContext, WorkoutLog, ExerciseLog, SetLog } from '@/context/AppCon
 import { useColors } from '@/hooks/useColors';
 import { Exercise, WorkoutDay } from '@/constants/workouts';
 import { PROGRAM_INFO } from '@/constants/workouts';
+import { openExerciseVideo } from '@/constants/exerciseLinks';
 
 function makeId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -144,11 +145,20 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor }: ExerciseCardP
             </View>
           )}
         </View>
-        <Text style={[styles.exTarget, { color: colors.mutedForeground }]}>
-          {exercise.targetSets} sets
-          {exercise.targetReps ? ` · ${exercise.targetReps} reps` : ''}
-          {exercise.targetDuration ? ` · ${exercise.targetDuration}` : ''}
-        </Text>
+        <View style={styles.exSubRow}>
+          <Text style={[styles.exTarget, { color: colors.mutedForeground }]}>
+            {exercise.targetSets} sets
+            {exercise.targetReps ? ` · ${exercise.targetReps} reps` : ''}
+            {exercise.targetDuration ? ` · ${exercise.targetDuration}` : ''}
+          </Text>
+          <TouchableOpacity
+            onPress={() => openExerciseVideo(exercise.name)}
+            style={[styles.howToBtn, { backgroundColor: accentColor + '15', borderColor: accentColor + '40' }]}
+          >
+            <Ionicons name="logo-youtube" size={13} color={accentColor} />
+            <Text style={[styles.howToBtnText, { color: accentColor }]}>How to</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.setHeaderRow}>
@@ -320,6 +330,9 @@ const styles = StyleSheet.create({
   exCard: { borderRadius: 16, borderWidth: 1, padding: 16 },
   exHeader: { marginBottom: 14 },
   exTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
+  exSubRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  howToBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  howToBtnText: { fontSize: 12, fontWeight: '600' },
   exName: { fontSize: 17, fontWeight: '700' },
   muscleTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   muscleTagText: { fontSize: 11, fontWeight: '600' },
