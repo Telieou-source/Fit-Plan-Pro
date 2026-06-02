@@ -181,7 +181,7 @@ const cardStyles = StyleSheet.create({
 export default function BodyScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, bodyEntries, saveBodyEntry, deleteBodyEntry } = useAppContext();
+  const { profile, setProfile, bodyEntries, saveBodyEntry, deleteBodyEntry } = useAppContext();
   const accentColor = profile ? PROGRAM_INFO[profile.programType].color : colors.primary;
 
   const [showForm, setShowForm] = useState(false);
@@ -194,6 +194,29 @@ export default function BodyScreen() {
 
   const resetForm = () => {
     setWeight(''); setChest(''); setWaist(''); setHips(''); setArms(''); setThighs('');
+  };
+
+  const existingInches = profile?.heightInches ?? null;
+  const [editingHeight, setEditingHeight] = useState(false);
+  const [heightFt, setHeightFt] = useState(
+    existingInches ? String(Math.floor(existingInches / 12)) : ''
+  );
+  const [heightIn, setHeightIn] = useState(
+    existingInches ? String(existingInches % 12) : ''
+  );
+
+  const handleSaveHeight = async () => {
+    if (!profile) return;
+    const ft = parseInt(heightFt) || 0;
+    const inches = parseInt(heightIn) || 0;
+    const total = ft * 12 + inches;
+    if (total < 36 || total > 96) {
+      Alert.alert('Invalid height', 'Please enter a height between 3\'0" and 8\'0".');
+      return;
+    }
+    await setProfile({ ...profile, heightInches: total });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setEditingHeight(false);
   };
 
   const handleSave = async () => {
@@ -224,6 +247,20 @@ export default function BodyScreen() {
     ? (latestEntry.weight - previousEntry.weight).toFixed(1)
     : null;
 
+  const bmi = (() => {
+    const h = profile?.heightInches;
+    const w = latestEntry?.weight;
+    if (!h || !w) return null;
+    return (703 * w) / (h * h);
+  })();
+
+  const bmiCategory = (b: number) => {
+    if (b < 18.5) return { label: 'Underweight', color: '#FF9500' };
+    if (b < 25)   return { label: 'Normal', color: '#30D158' };
+    if (b < 30)   return { label: 'Overweight', color: '#FF9500' };
+    return { label: 'Obese', color: '#FF3B30' };
+  };
+
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -243,6 +280,70 @@ export default function BodyScreen() {
           >
             <Ionicons name={showForm ? 'close' : 'add'} size={20} color="#fff" />
           </TouchableOpacity>
+        </View>
+
+        {/* Height card — persists to profile */}
+        <View style={[styles.heightCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.heightRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.heightLabel, { color: colors.mutedForeground }]}>HEIGHT</Text>
+              {!editingHeight && (
+                <Text style={[styles.heightValue, { color: colors.foreground }]}>
+                  {profile?.heightInches
+                    ? `${Math.floor(profile.heightInches / 12)}'${profile.heightInches % 12}"`
+                    : 'Not set'}
+                </Text>
+              )}
+              {editingHeight && (
+                <View style={styles.heightInputRow}>
+                  <View style={[styles.heightInputWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <TextInput
+                      style={[styles.heightInput, { color: colors.foreground }]}
+                      keyboardType="numeric"
+                      placeholder="5"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={heightFt}
+                      onChangeText={setHeightFt}
+                      maxLength={1}
+                    />
+                    <Text style={[styles.heightUnit, { color: colors.mutedForeground }]}>ft</Text>
+                  </View>
+                  <View style={[styles.heightInputWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <TextInput
+                      style={[styles.heightInput, { color: colors.foreground }]}
+                      keyboardType="numeric"
+                      placeholder="10"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={heightIn}
+                      onChangeText={setHeightIn}
+                      maxLength={2}
+                    />
+                    <Text style={[styles.heightUnit, { color: colors.mutedForeground }]}>in</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+            {!editingHeight ? (
+              <TouchableOpacity
+                onPress={() => { Haptics.selectionAsync(); setEditingHeight(true); }}
+                style={[styles.heightEditBtn, { borderColor: colors.border }]}
+              >
+                <Ionicons name="pencil-outline" size={15} color={colors.mutedForeground} />
+                <Text style={[styles.heightEditText, { color: colors.mutedForeground }]}>
+                  {profile?.heightInches ? 'Edit' : 'Set'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.heightEditBtns}>
+                <TouchableOpacity onPress={() => setEditingHeight(false)} style={[styles.heightCancelBtn, { borderColor: colors.border }]}>
+                  <Text style={[styles.heightEditText, { color: colors.mutedForeground }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleSaveHeight} style={[styles.heightSaveBtn, { backgroundColor: accentColor }]}>
+                  <Text style={styles.heightSaveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
 
         {latestEntry && (
@@ -270,6 +371,13 @@ export default function BodyScreen() {
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: accentColor }]}>{latestEntry.arms}</Text>
                   <Text style={[styles.summaryUnit, { color: colors.mutedForeground }]}>arms</Text>
+                </View>
+              )}
+              {bmi != null && (
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryValue, { color: bmiCategory(bmi).color }]}>{bmi.toFixed(1)}</Text>
+                  <Text style={[styles.summaryUnit, { color: colors.mutedForeground }]}>BMI</Text>
+                  <Text style={[styles.summaryDelta, { color: bmiCategory(bmi).color }]}>{bmiCategory(bmi).label}</Text>
                 </View>
               )}
             </View>
@@ -398,6 +506,20 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700' },
   emptyDesc: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
   historyLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
+  heightCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 14 },
+  heightRow: { flexDirection: 'row', alignItems: 'center' },
+  heightLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  heightValue: { fontSize: 22, fontWeight: '700' },
+  heightInputRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  heightInputWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, height: 38, minWidth: 72 },
+  heightInput: { fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
+  heightUnit: { fontSize: 13, marginLeft: 4 },
+  heightEditBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+  heightEditText: { fontSize: 13, fontWeight: '600' },
+  heightEditBtns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  heightCancelBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+  heightSaveBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10 },
+  heightSaveBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   trendCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 14 },
   trendTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
   trendItem: { paddingVertical: 14 },

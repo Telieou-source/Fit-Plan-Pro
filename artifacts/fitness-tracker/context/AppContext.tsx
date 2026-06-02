@@ -11,6 +11,7 @@ export interface UserProfile {
   preferredDays: number[]; // 0=Sun, 1=Mon ... 6=Sat; sorted
   workoutDuration: number; // minutes per session (15-120)
   startDate: string;
+  heightInches?: number; // used for BMI calculation
 }
 
 export interface SetLog {
