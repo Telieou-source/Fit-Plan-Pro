@@ -408,9 +408,10 @@ interface ExerciseCardProps {
   accentColor: string;
   onTimerPress: (secs: number, onComplete?: () => void, autoStart?: boolean) => void;
   onShuffle: () => void;
+  onToggleWeight: () => void;
 }
 
-function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, onShuffle }: ExerciseCardProps) {
+function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, onShuffle, onToggleWeight }: ExerciseCardProps) {
   const colors = useColors();
   const completedSets = log.sets.filter(s => s.completed).length;
 
@@ -449,6 +450,15 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, o
               <Ionicons name="swap-horizontal-outline" size={13} color={colors.mutedForeground} />
               <Text style={[styles.actionBtnText, { color: colors.mutedForeground }]}>Swap</Text>
             </TouchableOpacity>
+            {exercise.unit === 'bodyweight' && (
+              <TouchableOpacity
+                onPress={onToggleWeight}
+                style={[styles.actionBtn, { backgroundColor: accentColor + '15', borderColor: accentColor + '40' }]}
+              >
+                <Ionicons name="barbell-outline" size={13} color={accentColor} />
+                <Text style={[styles.actionBtnText, { color: accentColor }]}>+ Weight</Text>
+              </TouchableOpacity>
+            )}
             {exercise.unit !== 'time' && (
               <TouchableOpacity
                 onPress={() => onTimerPress(60)}
@@ -561,6 +571,17 @@ export default function WorkoutScreen() {
     setTimerAutoStart(autoStart);
     setTimerOnComplete(() => onComplete);
     setTimerVisible(true);
+  }, []);
+
+  const handleToggleWeight = useCallback((index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLocalExercises(prev =>
+      prev.map((ex, i) =>
+        i === index
+          ? { ...ex, unit: ex.unit === 'bodyweight' ? 'weight_reps' : 'bodyweight' }
+          : ex
+      )
+    );
   }, []);
 
   const handleShuffleExercise = useCallback((index: number) => {
@@ -679,6 +700,7 @@ export default function WorkoutScreen() {
               accentColor={accentColor}
               onTimerPress={openTimer}
               onShuffle={() => handleShuffleExercise(i)}
+              onToggleWeight={() => handleToggleWeight(i)}
             />
           ))}
         </View>
