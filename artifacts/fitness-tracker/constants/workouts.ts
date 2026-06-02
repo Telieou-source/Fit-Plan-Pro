@@ -799,6 +799,37 @@ function aerobicsPlan(days: number, skill: SkillLevel, week: number, duration: n
   return all.slice(0, days);
 }
 
+// ─── Exercise pool for shuffler ──────────────────────────────────────────────
+
+/** Returns every exercise available for a given program + skill level (flat list, no duplicates). */
+export function getProgramExercisePool(programType: ProgramType, skillLevel: SkillLevel): Exercise[] {
+  if (programType === 'muscle_building') {
+    const core = MB_CORE[skillLevel];
+    return [
+      core.push, core.pull, core.hinge, core.squat,
+      ...MB_CHEST_ACC[skillLevel],
+      ...MB_BACK_ACC[skillLevel],
+      ...MB_SHOULDER_ACC[skillLevel],
+      ...MB_ARM_ACC[skillLevel],
+      ...MB_LEG_ACC[skillLevel],
+      ...MB_CORE_EX[skillLevel],
+    ];
+  }
+  if (programType === 'crossfit') {
+    return [
+      ...CF_BARBELL[skillLevel],
+      ...CF_GYMNASTICS[skillLevel],
+      ...CF_CONDITIONING[skillLevel],
+      ...CF_METCON_OBJ[skillLevel],
+    ];
+  }
+  return [
+    ...AER_STEADY[skillLevel],
+    ...AER_HIIT[skillLevel],
+    ...AER_FUNCTIONAL[skillLevel],
+  ];
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export function generateWorkoutPlan(

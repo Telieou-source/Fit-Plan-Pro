@@ -18,7 +18,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext, WorkoutLog, ExerciseLog, SetLog } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
-import { Exercise, WorkoutDay, PROGRAM_INFO } from '@/constants/workouts';
+import { Exercise, WorkoutDay, PROGRAM_INFO, getProgramExercisePool } from '@/constants/workouts';
 import { openExerciseVideo } from '@/constants/exerciseLinks';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -35,6 +35,14 @@ const TIMER_PRESETS = [
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Fuzzy muscle-group match: "Back/Biceps" matches "Back", "Quads/Glutes" matches "Quads" */
+function muscleGroupMatches(a?: string, b?: string): boolean {
+  if (!a || !b) return false;
+  const pa = a.split('/')[0].trim().toLowerCase();
+  const pb = b.split('/')[0].trim().toLowerCase();
+  return pa === pb || a.toLowerCase().includes(pb) || b.toLowerCase().includes(pa);
+}
 
 function makeId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -387,9 +395,10 @@ interface ExerciseCardProps {
   onLogChange: (updated: ExerciseLog) => void;
   accentColor: string;
   onTimerPress: (secs: number, onComplete?: () => void, autoStart?: boolean) => void;
+  onShuffle: () => void;
 }
 
-function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }: ExerciseCardProps) {
+function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, onShuffle }: ExerciseCardProps) {
   const colors = useColors();
   const completedSets = log.sets.filter(s => s.completed).length;
 
@@ -421,6 +430,13 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }:
             {exercise.targetDuration ? ` · ${exercise.targetDuration}` : ''}
           </Text>
           <View style={styles.exActions}>
+            <TouchableOpacity
+              onPress={onShuffle}
+              style={[styles.actionBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+            >
+              <Ionicons name="swap-horizontal-outline" size={13} color={colors.mutedForeground} />
+              <Text style={[styles.actionBtnText, { color: colors.mutedForeground }]}>Swap</Text>
+            </TouchableOpacity>
             {exercise.unit !== 'time' && (
               <TouchableOpacity
                 onPress={() => onTimerPress(60)}
@@ -501,6 +517,7 @@ export default function WorkoutScreen() {
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(() =>
     existingLog ? existingLog.exerciseLogs : (todayWorkout ? initExerciseLogs(todayWorkout) : [])
   );
+  const [localExercises, setLocalExercises] = useState<Exercise[]>(() => todayWorkout?.exercises ?? []);
   const [logId] = useState(() => existingLog?.id ?? makeId());
   const [timerVisible, setTimerVisible] = useState(false);
   const [timerInitSecs, setTimerInitSecs] = useState(60);
@@ -515,6 +532,10 @@ export default function WorkoutScreen() {
     }
   }, [todayWorkout?.id]);
 
+  useEffect(() => {
+    if (todayWorkout) setLocalExercises(todayWorkout.exercises);
+  }, [todayWorkout?.id]);
+
   const accentColor = profile ? PROGRAM_INFO[profile.programType].color : colors.primary;
   const completedCount = exerciseLogs.reduce((acc, el) => acc + el.sets.filter(s => s.completed).length, 0);
   const totalSets = exerciseLogs.reduce((acc, el) => acc + el.sets.length, 0);
@@ -527,6 +548,39 @@ export default function WorkoutScreen() {
     setTimerOnComplete(() => onComplete);
     setTimerVisible(true);
   }, []);
+
+  const handleShuffleExercise = useCallback((index: number) => {
+    if (!profile) return;
+    const pool = getProgramExercisePool(profile.programType, profile.skillLevel);
+    const inUseIds = new Set(localExercises.map(ex => ex.id));
+    const current = localExercises[index];
+
+    // Priority 1: same muscle group
+    let candidates = pool.filter(ex =>
+      !inUseIds.has(ex.id) && muscleGroupMatches(ex.muscleGroup, current.muscleGroup)
+    );
+    // Priority 2: same unit type (time / distance / weight_reps)
+    if (candidates.length === 0) {
+      candidates = pool.filter(ex => !inUseIds.has(ex.id) && ex.unit === current.unit);
+    }
+    // Priority 3: anything not already in today's workout
+    if (candidates.length === 0) {
+      candidates = pool.filter(ex => !inUseIds.has(ex.id));
+    }
+    if (candidates.length === 0) {
+      Alert.alert('No alternatives', "You've already used every available exercise for this slot!");
+      return;
+    }
+
+    const replacement = candidates[Math.floor(Math.random() * candidates.length)];
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLocalExercises(prev => prev.map((ex, i) => i === index ? replacement : ex));
+    setExerciseLogs(prev => prev.map((log, i) =>
+      i === index
+        ? { exerciseId: replacement.id, exerciseName: replacement.name, sets: initSets(replacement, replacement.targetSets) }
+        : log
+    ));
+  }, [profile, localExercises]);
 
   const handleSave = useCallback(async () => {
     if (!todayWorkout) return;
@@ -599,7 +653,7 @@ export default function WorkoutScreen() {
         )}
 
         <View style={styles.exercises}>
-          {todayWorkout.exercises.map((exercise, i) => (
+          {localExercises.map((exercise, i) => (
             <ExerciseCard
               key={exercise.id}
               exercise={exercise}
@@ -610,6 +664,7 @@ export default function WorkoutScreen() {
               }}
               accentColor={accentColor}
               onTimerPress={openTimer}
+              onShuffle={() => handleShuffleExercise(i)}
             />
           ))}
         </View>
