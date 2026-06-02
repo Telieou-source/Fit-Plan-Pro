@@ -8,7 +8,7 @@ export interface Exercise {
   targetReps?: string;
   targetDuration?: string;
   muscleGroup?: string;
-  unit: 'weight_reps' | 'time' | 'distance';
+  unit: 'weight_reps' | 'time' | 'distance' | 'bodyweight';
 }
 
 export interface WorkoutDay {
@@ -25,7 +25,7 @@ export interface WorkoutDay {
 const e = (
   id: string, name: string, sets: number,
   reps: string | undefined, dur: string | undefined,
-  mg: string | undefined, unit: 'weight_reps' | 'time' | 'distance' = 'weight_reps'
+  mg: string | undefined, unit: 'weight_reps' | 'time' | 'distance' | 'bodyweight' = 'weight_reps'
 ): Exercise => ({ id, name, targetSets: sets, targetReps: reps, targetDuration: dur, muscleGroup: mg, unit });
 
 /** Deterministically pick `count` items from `pool` starting at `seed`. */
@@ -45,7 +45,7 @@ export interface LibraryExercise {
   defaultSets: number;
   defaultReps?: string;
   defaultDuration?: string;
-  unit: 'weight_reps' | 'time' | 'distance';
+  unit: 'weight_reps' | 'time' | 'distance' | 'bodyweight';
   tags: string[];
 }
 
@@ -57,16 +57,16 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { id: 'lib_decline_bench', name: 'Decline Bench Press', muscleGroup: 'Chest', defaultSets: 3, defaultReps: '8-10', unit: 'weight_reps', tags: ['chest', 'push'] },
   { id: 'lib_cable_fly', name: 'Cable Fly', muscleGroup: 'Chest', defaultSets: 3, defaultReps: '12-15', unit: 'weight_reps', tags: ['chest', 'isolation'] },
   { id: 'lib_pec_deck', name: 'Pec Deck Machine', muscleGroup: 'Chest', defaultSets: 3, defaultReps: '12-15', unit: 'weight_reps', tags: ['chest', 'isolation'] },
-  { id: 'lib_pushups', name: 'Push-ups', muscleGroup: 'Chest', defaultSets: 3, defaultReps: 'AMRAP', unit: 'weight_reps', tags: ['chest', 'bodyweight'] },
-  { id: 'lib_dips', name: 'Dips', muscleGroup: 'Chest/Triceps', defaultSets: 3, defaultReps: 'AMRAP', unit: 'weight_reps', tags: ['chest', 'triceps', 'bodyweight'] },
+  { id: 'lib_pushups', name: 'Push-ups', muscleGroup: 'Chest', defaultSets: 3, defaultReps: 'AMRAP', unit: 'bodyweight', tags: ['chest', 'bodyweight'] },
+  { id: 'lib_dips', name: 'Dips', muscleGroup: 'Chest/Triceps', defaultSets: 3, defaultReps: 'AMRAP', unit: 'bodyweight', tags: ['chest', 'triceps', 'bodyweight'] },
   // Back
   { id: 'lib_deadlift', name: 'Deadlift', muscleGroup: 'Back', defaultSets: 4, defaultReps: '4-6', unit: 'weight_reps', tags: ['back', 'strength', 'compound'] },
   { id: 'lib_bb_row', name: 'Barbell Row', muscleGroup: 'Back', defaultSets: 4, defaultReps: '6-8', unit: 'weight_reps', tags: ['back', 'pull', 'strength'] },
   { id: 'lib_lat_pulldown', name: 'Lat Pulldown', muscleGroup: 'Back', defaultSets: 3, defaultReps: '10-12', unit: 'weight_reps', tags: ['back', 'pull'] },
   { id: 'lib_seated_row', name: 'Seated Cable Row', muscleGroup: 'Back', defaultSets: 3, defaultReps: '10-12', unit: 'weight_reps', tags: ['back', 'pull'] },
   { id: 'lib_db_row', name: 'Single-Arm DB Row', muscleGroup: 'Back', defaultSets: 3, defaultReps: '10-12', unit: 'weight_reps', tags: ['back', 'pull'] },
-  { id: 'lib_pull_ups', name: 'Pull-ups', muscleGroup: 'Back', defaultSets: 3, defaultReps: 'AMRAP', unit: 'weight_reps', tags: ['back', 'bodyweight'] },
-  { id: 'lib_chin_ups', name: 'Chin-ups', muscleGroup: 'Back/Biceps', defaultSets: 3, defaultReps: 'AMRAP', unit: 'weight_reps', tags: ['back', 'biceps', 'bodyweight'] },
+  { id: 'lib_pull_ups', name: 'Pull-ups', muscleGroup: 'Back', defaultSets: 3, defaultReps: 'AMRAP', unit: 'bodyweight', tags: ['back', 'bodyweight'] },
+  { id: 'lib_chin_ups', name: 'Chin-ups', muscleGroup: 'Back/Biceps', defaultSets: 3, defaultReps: 'AMRAP', unit: 'bodyweight', tags: ['back', 'biceps', 'bodyweight'] },
   { id: 'lib_face_pull', name: 'Face Pull', muscleGroup: 'Rear Delts', defaultSets: 3, defaultReps: '15-20', unit: 'weight_reps', tags: ['back', 'shoulders'] },
   // Shoulders
   { id: 'lib_ohp', name: 'Overhead Press', muscleGroup: 'Shoulders', defaultSets: 4, defaultReps: '6-8', unit: 'weight_reps', tags: ['shoulders', 'push', 'strength'] },
@@ -93,10 +93,10 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { id: 'lib_hip_thrust', name: 'Hip Thrust', muscleGroup: 'Glutes', defaultSets: 4, defaultReps: '10-12', unit: 'weight_reps', tags: ['legs', 'glutes'] },
   // Core
   { id: 'lib_plank', name: 'Plank', muscleGroup: 'Core', defaultSets: 3, defaultDuration: '45 sec', unit: 'time', tags: ['core', 'bodyweight'] },
-  { id: 'lib_crunches', name: 'Crunches', muscleGroup: 'Core', defaultSets: 3, defaultReps: '20', unit: 'weight_reps', tags: ['core', 'bodyweight'] },
-  { id: 'lib_ab_wheel', name: 'Ab Wheel Rollout', muscleGroup: 'Core', defaultSets: 3, defaultReps: '10', unit: 'weight_reps', tags: ['core'] },
-  { id: 'lib_leg_raise', name: 'Hanging Leg Raise', muscleGroup: 'Core', defaultSets: 3, defaultReps: '12', unit: 'weight_reps', tags: ['core'] },
-  { id: 'lib_russian_twist', name: 'Russian Twist', muscleGroup: 'Core', defaultSets: 3, defaultReps: '20', unit: 'weight_reps', tags: ['core', 'bodyweight'] },
+  { id: 'lib_crunches', name: 'Crunches', muscleGroup: 'Core', defaultSets: 3, defaultReps: '20', unit: 'bodyweight', tags: ['core', 'bodyweight'] },
+  { id: 'lib_ab_wheel', name: 'Ab Wheel Rollout', muscleGroup: 'Core', defaultSets: 3, defaultReps: '10', unit: 'bodyweight', tags: ['core'] },
+  { id: 'lib_leg_raise', name: 'Hanging Leg Raise', muscleGroup: 'Core', defaultSets: 3, defaultReps: '12', unit: 'bodyweight', tags: ['core'] },
+  { id: 'lib_russian_twist', name: 'Russian Twist', muscleGroup: 'Core', defaultSets: 3, defaultReps: '20', unit: 'bodyweight', tags: ['core', 'bodyweight'] },
   // Cardio
   { id: 'lib_run', name: 'Running', muscleGroup: 'Cardio', defaultSets: 1, defaultDuration: '30 min', unit: 'time', tags: ['cardio', 'aerobics'] },
   { id: 'lib_cycling', name: 'Stationary Bike', muscleGroup: 'Cardio', defaultSets: 1, defaultDuration: '40 min', unit: 'time', tags: ['cardio', 'aerobics'] },
@@ -104,10 +104,10 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { id: 'lib_elliptical', name: 'Elliptical', muscleGroup: 'Cardio', defaultSets: 1, defaultDuration: '35 min', unit: 'time', tags: ['cardio', 'aerobics'] },
   { id: 'lib_jump_rope', name: 'Jump Rope', muscleGroup: 'Cardio', defaultSets: 5, defaultDuration: '3 min', unit: 'time', tags: ['cardio', 'hiit'] },
   { id: 'lib_sprints', name: 'Sprint Intervals', muscleGroup: 'Cardio', defaultSets: 8, defaultDuration: '1 min on / 1 off', unit: 'time', tags: ['cardio', 'hiit'] },
-  { id: 'lib_burpees', name: 'Burpees', muscleGroup: 'Full Body', defaultSets: 4, defaultReps: '10', unit: 'weight_reps', tags: ['cardio', 'hiit', 'crossfit'] },
+  { id: 'lib_burpees', name: 'Burpees', muscleGroup: 'Full Body', defaultSets: 4, defaultReps: '10', unit: 'bodyweight', tags: ['cardio', 'hiit', 'crossfit'] },
   // CrossFit
   { id: 'lib_thruster', name: 'Thrusters', muscleGroup: 'Full Body', defaultSets: 5, defaultReps: '15', unit: 'weight_reps', tags: ['crossfit', 'compound'] },
-  { id: 'lib_box_jump', name: 'Box Jumps', muscleGroup: 'Legs', defaultSets: 5, defaultReps: '10', unit: 'weight_reps', tags: ['crossfit', 'plyometric'] },
+  { id: 'lib_box_jump', name: 'Box Jumps', muscleGroup: 'Legs', defaultSets: 5, defaultReps: '10', unit: 'bodyweight', tags: ['crossfit', 'plyometric'] },
   { id: 'lib_kb_swing', name: 'Kettlebell Swings', muscleGroup: 'Posterior Chain', defaultSets: 5, defaultReps: '20', unit: 'weight_reps', tags: ['crossfit', 'compound'] },
   { id: 'lib_wall_ball', name: 'Wall Ball Shots', muscleGroup: 'Full Body', defaultSets: 4, defaultReps: '20', unit: 'weight_reps', tags: ['crossfit', 'compound'] },
   { id: 'lib_power_clean', name: 'Power Clean', muscleGroup: 'Full Body', defaultSets: 5, defaultReps: '3', unit: 'weight_reps', tags: ['crossfit', 'olympic'] },
@@ -155,7 +155,7 @@ const MB_CHEST_ACC: Record<SkillLevel, Exercise[]> = {
   novice: [
     e('ch_a1', 'DB Chest Press', 3, '12-15', undefined, 'Chest'),
     e('ch_a2', 'Chest Fly Machine', 3, '12-15', undefined, 'Chest'),
-    e('ch_a3', 'Push-ups', 3, 'AMRAP', undefined, 'Chest'),
+    e('ch_a3', 'Push-ups', 3, 'AMRAP', undefined, 'Chest', 'bodyweight'),
     e('ch_a4', 'Cable Crossover', 3, '12-15', undefined, 'Chest'),
   ],
   intermediate: [
@@ -169,7 +169,7 @@ const MB_CHEST_ACC: Record<SkillLevel, Exercise[]> = {
     e('ch_c1', 'Incline Barbell Press', 4, '6-8', undefined, 'Chest'),
     e('ch_c2', 'DB Pullovers', 3, '10-12', undefined, 'Chest/Lats'),
     e('ch_c3', 'Cable Fly (Low)', 3, '15-20', undefined, 'Chest'),
-    e('ch_c4', 'Ring Push-ups', 3, 'AMRAP', undefined, 'Chest'),
+    e('ch_c4', 'Ring Push-ups', 3, 'AMRAP', undefined, 'Chest', 'bodyweight'),
   ],
 };
 
@@ -269,21 +269,21 @@ const MB_LEG_ACC: Record<SkillLevel, Exercise[]> = {
 const MB_CORE_EX: Record<SkillLevel, Exercise[]> = {
   novice: [
     e('co_a1', 'Plank', 3, undefined, '30 sec', 'Core', 'time'),
-    e('co_a2', 'Crunches', 3, '20', undefined, 'Core'),
-    e('co_a3', 'Bird Dog', 3, '10 each', undefined, 'Core'),
-    e('co_a4', 'Dead Bug', 3, '10 each', undefined, 'Core'),
+    e('co_a2', 'Crunches', 3, '20', undefined, 'Core', 'bodyweight'),
+    e('co_a3', 'Bird Dog', 3, '10 each', undefined, 'Core', 'bodyweight'),
+    e('co_a4', 'Dead Bug', 3, '10 each', undefined, 'Core', 'bodyweight'),
   ],
   intermediate: [
     e('co_b1', 'Plank', 3, undefined, '45 sec', 'Core', 'time'),
     e('co_b2', 'Cable Crunch', 3, '15', undefined, 'Core'),
-    e('co_b3', 'Russian Twist', 3, '20', undefined, 'Core'),
-    e('co_b4', 'Hanging Knee Raise', 3, '12', undefined, 'Core'),
-    e('co_b5', 'Ab Wheel Rollout', 3, '10', undefined, 'Core'),
+    e('co_b3', 'Russian Twist', 3, '20', undefined, 'Core', 'bodyweight'),
+    e('co_b4', 'Hanging Knee Raise', 3, '12', undefined, 'Core', 'bodyweight'),
+    e('co_b5', 'Ab Wheel Rollout', 3, '10', undefined, 'Core', 'bodyweight'),
   ],
   advanced: [
-    e('co_c1', 'Hanging Leg Raise', 3, '12', undefined, 'Core'),
+    e('co_c1', 'Hanging Leg Raise', 3, '12', undefined, 'Core', 'bodyweight'),
     e('co_c2', 'L-Sit Hold', 3, undefined, '20 sec', 'Core', 'time'),
-    e('co_c3', 'Dragon Flag', 3, '8', undefined, 'Core'),
+    e('co_c3', 'Dragon Flag', 3, '8', undefined, 'Core', 'bodyweight'),
     e('co_c4', 'Cable Crunch', 3, '15', undefined, 'Core'),
     e('co_c5', 'Pallof Press', 3, '12 each', undefined, 'Core'),
   ],
@@ -328,45 +328,45 @@ const CF_BARBELL: Record<SkillLevel, Exercise[]> = {
 
 const CF_GYMNASTICS: Record<SkillLevel, Exercise[]> = {
   novice: [
-    e('cfg_n1', 'Ring Rows', 4, '10', undefined, 'Back'),
-    e('cfg_n2', 'Box Step-ups', 4, '10 each', undefined, 'Legs'),
-    e('cfg_n3', 'Push-ups', 4, 'AMRAP', undefined, 'Chest'),
-    e('cfg_n4', 'Inverted Row', 4, '10', undefined, 'Back'),
-    e('cfg_n5', 'Assisted Pull-up (Band)', 4, '8', undefined, 'Back'),
-    e('cfg_n6', 'Pike Push-up', 3, '10', undefined, 'Shoulders'),
-    e('cfg_n7', 'Dips (Bench-assisted)', 3, 'AMRAP', undefined, 'Triceps'),
+    e('cfg_n1', 'Ring Rows', 4, '10', undefined, 'Back', 'bodyweight'),
+    e('cfg_n2', 'Box Step-ups', 4, '10 each', undefined, 'Legs', 'bodyweight'),
+    e('cfg_n3', 'Push-ups', 4, 'AMRAP', undefined, 'Chest', 'bodyweight'),
+    e('cfg_n4', 'Inverted Row', 4, '10', undefined, 'Back', 'bodyweight'),
+    e('cfg_n5', 'Assisted Pull-up (Band)', 4, '8', undefined, 'Back', 'bodyweight'),
+    e('cfg_n6', 'Pike Push-up', 3, '10', undefined, 'Shoulders', 'bodyweight'),
+    e('cfg_n7', 'Dips (Bench-assisted)', 3, 'AMRAP', undefined, 'Triceps', 'bodyweight'),
     e('cfg_n8', 'Hollow Body Hold', 3, undefined, '20 sec', 'Core', 'time'),
     e('cfg_n9', 'Superman Hold', 3, undefined, '20 sec', 'Lower Back', 'time'),
   ],
   intermediate: [
-    e('cfg_i1', 'Pull-ups', 5, 'AMRAP', undefined, 'Back'),
-    e('cfg_i2', 'Ring Dips', 4, '10', undefined, 'Triceps'),
-    e('cfg_i3', 'Toes-to-Bar', 4, '10', undefined, 'Core'),
-    e('cfg_i4', 'HSPU (Box or Wall)', 4, '8', undefined, 'Shoulders'),
-    e('cfg_i5', 'Chest-to-Bar Pull-ups', 4, '8', undefined, 'Back'),
-    e('cfg_i6', 'Kipping Pull-ups', 4, '15', undefined, 'Back'),
-    e('cfg_i7', 'Knees-to-Elbows', 4, '12', undefined, 'Core'),
-    e('cfg_i8', 'Ring Push-ups', 3, 'AMRAP', undefined, 'Chest'),
-    e('cfg_i9', 'Bar Muscle-up Progressions', 3, '5', undefined, 'Full Body'),
-    e('cfg_i10', 'Hollow Rocks', 3, '20', undefined, 'Core'),
+    e('cfg_i1', 'Pull-ups', 5, 'AMRAP', undefined, 'Back', 'bodyweight'),
+    e('cfg_i2', 'Ring Dips', 4, '10', undefined, 'Triceps', 'bodyweight'),
+    e('cfg_i3', 'Toes-to-Bar', 4, '10', undefined, 'Core', 'bodyweight'),
+    e('cfg_i4', 'HSPU (Box or Wall)', 4, '8', undefined, 'Shoulders', 'bodyweight'),
+    e('cfg_i5', 'Chest-to-Bar Pull-ups', 4, '8', undefined, 'Back', 'bodyweight'),
+    e('cfg_i6', 'Kipping Pull-ups', 4, '15', undefined, 'Back', 'bodyweight'),
+    e('cfg_i7', 'Knees-to-Elbows', 4, '12', undefined, 'Core', 'bodyweight'),
+    e('cfg_i8', 'Ring Push-ups', 3, 'AMRAP', undefined, 'Chest', 'bodyweight'),
+    e('cfg_i9', 'Bar Muscle-up Progressions', 3, '5', undefined, 'Full Body', 'bodyweight'),
+    e('cfg_i10', 'Hollow Rocks', 3, '20', undefined, 'Core', 'bodyweight'),
   ],
   advanced: [
-    e('cfg_a1', 'Bar Muscle-ups', 5, '5', undefined, 'Full Body'),
-    e('cfg_a2', 'Strict HSPU', 4, '8', undefined, 'Shoulders'),
-    e('cfg_a3', 'Ring Muscle-ups', 4, '3', undefined, 'Full Body'),
-    e('cfg_a4', 'Strict Chest-to-Bar Pull-ups', 5, '8', undefined, 'Back'),
-    e('cfg_a5', 'L-Pull-ups', 4, '8', undefined, 'Back/Core'),
-    e('cfg_a6', 'Toes-to-Bar (Strict)', 4, '12', undefined, 'Core'),
-    e('cfg_a7', 'Freestanding HSPU', 3, 'AMRAP', undefined, 'Shoulders'),
-    e('cfg_a8', 'Pistol Squats', 4, '5 each', undefined, 'Legs'),
-    e('cfg_a9', 'Iron Cross Progressions', 3, '5', undefined, 'Full Body'),
+    e('cfg_a1', 'Bar Muscle-ups', 5, '5', undefined, 'Full Body', 'bodyweight'),
+    e('cfg_a2', 'Strict HSPU', 4, '8', undefined, 'Shoulders', 'bodyweight'),
+    e('cfg_a3', 'Ring Muscle-ups', 4, '3', undefined, 'Full Body', 'bodyweight'),
+    e('cfg_a4', 'Strict Chest-to-Bar Pull-ups', 5, '8', undefined, 'Back', 'bodyweight'),
+    e('cfg_a5', 'L-Pull-ups', 4, '8', undefined, 'Back/Core', 'bodyweight'),
+    e('cfg_a6', 'Toes-to-Bar (Strict)', 4, '12', undefined, 'Core', 'bodyweight'),
+    e('cfg_a7', 'Freestanding HSPU', 3, 'AMRAP', undefined, 'Shoulders', 'bodyweight'),
+    e('cfg_a8', 'Pistol Squats', 4, '5 each', undefined, 'Legs', 'bodyweight'),
+    e('cfg_a9', 'Iron Cross Progressions', 3, '5', undefined, 'Full Body', 'bodyweight'),
   ],
 };
 
 const CF_CONDITIONING: Record<SkillLevel, Exercise[]> = {
   novice: [
     e('cfc_n1', 'Row Erg (Easy)', 1, undefined, '500m', 'Cardio', 'distance'),
-    e('cfc_n2', 'Box Step-ups', 5, '10', undefined, 'Legs'),
+    e('cfc_n2', 'Box Step-ups', 5, '10', undefined, 'Legs', 'bodyweight'),
     e('cfc_n3', 'KB Swings', 5, '15', undefined, 'Posterior Chain'),
     e('cfc_n4', 'Med Ball Slam', 5, '10', undefined, 'Full Body'),
     e('cfc_n5', 'Stationary Bike', 1, undefined, '10 min', 'Cardio', 'time'),
@@ -378,8 +378,8 @@ const CF_CONDITIONING: Record<SkillLevel, Exercise[]> = {
   ],
   intermediate: [
     e('cfc_i1', 'Row Erg Intervals', 5, undefined, '500m', 'Cardio', 'distance'),
-    e('cfc_i2', 'Box Jumps', 5, '10', undefined, 'Legs'),
-    e('cfc_i3', 'Burpees', 5, '10', undefined, 'Full Body'),
+    e('cfc_i2', 'Box Jumps', 5, '10', undefined, 'Legs', 'bodyweight'),
+    e('cfc_i3', 'Burpees', 5, '10', undefined, 'Full Body', 'bodyweight'),
     e('cfc_i4', 'Wall Ball Shots', 4, '20', undefined, 'Full Body'),
     e('cfc_i5', 'KB Swings (Heavy)', 5, '20', undefined, 'Posterior Chain'),
     e('cfc_i6', 'Double-under Attempts', 5, undefined, '1 min', 'Cardio', 'time'),
@@ -390,11 +390,11 @@ const CF_CONDITIONING: Record<SkillLevel, Exercise[]> = {
   ],
   advanced: [
     e('cfc_a1', 'Assault Bike Sprints', 10, undefined, '10 sec max / 50 sec rest', 'Cardio', 'time'),
-    e('cfc_a2', 'Double-Unders', 5, '50', undefined, 'Cardio'),
+    e('cfc_a2', 'Double-Unders', 5, '50', undefined, 'Cardio', 'bodyweight'),
     e('cfc_a3', 'Row Erg (2k TT)', 1, undefined, '2000m max effort', 'Cardio', 'distance'),
-    e('cfc_a4', 'Box Jumps (30"+)', 5, '10', undefined, 'Legs'),
-    e('cfc_a5', 'Burpee Box Jump-overs', 5, '10', undefined, 'Full Body'),
-    e('cfc_a6', 'GHD Sit-ups', 4, '20', undefined, 'Core'),
+    e('cfc_a4', 'Box Jumps (30"+)', 5, '10', undefined, 'Legs', 'bodyweight'),
+    e('cfc_a5', 'Burpee Box Jump-overs', 5, '10', undefined, 'Full Body', 'bodyweight'),
+    e('cfc_a6', 'GHD Sit-ups', 4, '20', undefined, 'Core', 'bodyweight'),
     e('cfc_a7', 'Ski Erg Intervals', 5, undefined, '1 min on / 1 min off', 'Cardio', 'time'),
     e('cfc_a8', 'Yoke Carry', 3, undefined, '20m max load', 'Full Body', 'distance'),
     e('cfc_a9', 'Handstand Walk', 4, undefined, '10m', 'Shoulders/Core', 'distance'),
@@ -404,33 +404,33 @@ const CF_CONDITIONING: Record<SkillLevel, Exercise[]> = {
 const CF_METCON_OBJ: Record<SkillLevel, Exercise[]> = {
   novice: [
     e('cfm_n1', 'KB Swing', 4, '20', undefined, 'Posterior Chain'),
-    e('cfm_n2', 'Box Step-up', 4, '15', undefined, 'Legs'),
-    e('cfm_n3', 'Push-up', 4, '15', undefined, 'Chest'),
+    e('cfm_n2', 'Box Step-up', 4, '15', undefined, 'Legs', 'bodyweight'),
+    e('cfm_n3', 'Push-up', 4, '15', undefined, 'Chest', 'bodyweight'),
     e('cfm_n4', 'DB Thruster', 4, '10', undefined, 'Full Body'),
     e('cfm_n5', 'Row Erg', 1, undefined, '500m', 'Cardio', 'distance'),
-    e('cfm_n6', 'Burpee', 4, '10', undefined, 'Full Body'),
-    e('cfm_n7', 'Ring Row', 4, '10', undefined, 'Back'),
+    e('cfm_n6', 'Burpee', 4, '10', undefined, 'Full Body', 'bodyweight'),
+    e('cfm_n7', 'Ring Row', 4, '10', undefined, 'Back', 'bodyweight'),
     e('cfm_n8', 'Jump Rope', 1, undefined, '2 min', 'Cardio', 'time'),
   ],
   intermediate: [
     e('cfm_i1', 'Wall Ball', 5, '20', undefined, 'Full Body'),
-    e('cfm_i2', 'Pull-up', 5, '10', undefined, 'Back'),
-    e('cfm_i3', 'Box Jump', 5, '10', undefined, 'Legs'),
+    e('cfm_i2', 'Pull-up', 5, '10', undefined, 'Back', 'bodyweight'),
+    e('cfm_i3', 'Box Jump', 5, '10', undefined, 'Legs', 'bodyweight'),
     e('cfm_i4', 'Thruster', 5, '15', undefined, 'Full Body'),
-    e('cfm_i5', 'Burpee', 5, '10', undefined, 'Full Body'),
-    e('cfm_i6', 'Toes-to-Bar', 4, '10', undefined, 'Core'),
+    e('cfm_i5', 'Burpee', 5, '10', undefined, 'Full Body', 'bodyweight'),
+    e('cfm_i6', 'Toes-to-Bar', 4, '10', undefined, 'Core', 'bodyweight'),
     e('cfm_i7', 'Row Erg', 1, undefined, '500m', 'Cardio', 'distance'),
     e('cfm_i8', 'KB Swing', 5, '20', undefined, 'Posterior Chain'),
     e('cfm_i9', 'Double-under', 1, undefined, '1 min', 'Cardio', 'time'),
-    e('cfm_i10', 'HSPU', 4, '8', undefined, 'Shoulders'),
+    e('cfm_i10', 'HSPU', 4, '8', undefined, 'Shoulders', 'bodyweight'),
   ],
   advanced: [
-    e('cfm_a1', 'CTB Pull-ups', 5, '10', undefined, 'Back'),
+    e('cfm_a1', 'CTB Pull-ups', 5, '10', undefined, 'Back', 'bodyweight'),
     e('cfm_a2', 'Thruster (Heavy)', 5, '10', undefined, 'Full Body'),
-    e('cfm_a3', 'Double-unders', 3, '50', undefined, 'Cardio'),
-    e('cfm_a4', 'Muscle-up', 4, '5', undefined, 'Full Body'),
-    e('cfm_a5', 'GHD Sit-up', 4, '20', undefined, 'Core'),
-    e('cfm_a6', 'Burpee Box Jump-over', 4, '10', undefined, 'Full Body'),
+    e('cfm_a3', 'Double-unders', 3, '50', undefined, 'Cardio', 'bodyweight'),
+    e('cfm_a4', 'Muscle-up', 4, '5', undefined, 'Full Body', 'bodyweight'),
+    e('cfm_a5', 'GHD Sit-up', 4, '20', undefined, 'Core', 'bodyweight'),
+    e('cfm_a6', 'Burpee Box Jump-over', 4, '10', undefined, 'Full Body', 'bodyweight'),
     e('cfm_a7', 'Row Erg', 1, undefined, '500m', 'Cardio', 'distance'),
     e('cfm_a8', 'Handstand Walk', 2, undefined, '10m', 'Shoulders', 'distance'),
   ],
@@ -479,7 +479,7 @@ const AER_HIIT: Record<SkillLevel, Exercise[]> = {
     e('aer_hi_i3', 'Bike Sprints', 8, undefined, '30 sec max / 1.5 min off', 'Cardio', 'time'),
     e('aer_hi_i4', 'Mountain Climbers', 5, undefined, '45 sec', 'Core/Cardio', 'time'),
     e('aer_hi_i5', 'High Knees', 5, undefined, '45 sec', 'Cardio', 'time'),
-    e('aer_hi_i6', 'Burpees', 5, '10', undefined, 'Full Body'),
+    e('aer_hi_i6', 'Burpees', 5, '10', undefined, 'Full Body', 'bodyweight'),
     e('aer_hi_i7', 'Lateral Shuffles', 5, undefined, '30 sec', 'Cardio', 'time'),
   ],
   advanced: [
@@ -498,25 +498,25 @@ const AER_FUNCTIONAL: Record<SkillLevel, Exercise[]> = {
     e('aer_fn_n2', 'March in Place', 4, undefined, '1 min', 'Cardio', 'time'),
     e('aer_fn_n3', 'Side Step', 4, undefined, '1 min', 'Cardio', 'time'),
     e('aer_fn_n4', 'Arm Circles', 3, undefined, '1 min', 'Shoulders', 'time'),
-    e('aer_fn_n5', 'Modified Burpee (No Jump)', 3, '10', undefined, 'Full Body'),
-    e('aer_fn_n6', 'Standing Bicycle Crunch', 3, '20', undefined, 'Core'),
+    e('aer_fn_n5', 'Modified Burpee (No Jump)', 3, '10', undefined, 'Full Body', 'bodyweight'),
+    e('aer_fn_n6', 'Standing Bicycle Crunch', 3, '20', undefined, 'Core', 'bodyweight'),
   ],
   intermediate: [
-    e('aer_fn_i1', 'Squat Jumps', 4, '15', undefined, 'Legs'),
-    e('aer_fn_i2', 'Lateral Bounds', 4, '12 each', undefined, 'Legs'),
+    e('aer_fn_i1', 'Squat Jumps', 4, '15', undefined, 'Legs', 'bodyweight'),
+    e('aer_fn_i2', 'Lateral Bounds', 4, '12 each', undefined, 'Legs', 'bodyweight'),
     e('aer_fn_i3', 'Mountain Climbers', 4, undefined, '45 sec', 'Core', 'time'),
-    e('aer_fn_i4', 'Jumping Lunges', 4, '12 each', undefined, 'Legs'),
-    e('aer_fn_i5', 'Burpees', 4, '10', undefined, 'Full Body'),
+    e('aer_fn_i4', 'Jumping Lunges', 4, '12 each', undefined, 'Legs', 'bodyweight'),
+    e('aer_fn_i5', 'Burpees', 4, '10', undefined, 'Full Body', 'bodyweight'),
     e('aer_fn_i6', 'Plank Jacks', 4, undefined, '30 sec', 'Core', 'time'),
-    e('aer_fn_i7', 'Skaters', 4, '15 each', undefined, 'Legs'),
+    e('aer_fn_i7', 'Skaters', 4, '15 each', undefined, 'Legs', 'bodyweight'),
   ],
   advanced: [
-    e('aer_fn_a1', 'Box Jump Burpees', 5, '10', undefined, 'Full Body'),
-    e('aer_fn_a2', 'Single-leg Bounds', 5, '10 each', undefined, 'Legs'),
-    e('aer_fn_a3', 'Tuck Jumps', 4, '15', undefined, 'Legs'),
-    e('aer_fn_a4', 'Explosive Push-ups', 4, '10', undefined, 'Chest'),
+    e('aer_fn_a1', 'Box Jump Burpees', 5, '10', undefined, 'Full Body', 'bodyweight'),
+    e('aer_fn_a2', 'Single-leg Bounds', 5, '10 each', undefined, 'Legs', 'bodyweight'),
+    e('aer_fn_a3', 'Tuck Jumps', 4, '15', undefined, 'Legs', 'bodyweight'),
+    e('aer_fn_a4', 'Explosive Push-ups', 4, '10', undefined, 'Chest', 'bodyweight'),
     e('aer_fn_a5', 'Sprint Starts', 8, undefined, '20m', 'Cardio', 'distance'),
-    e('aer_fn_a6', 'Broad Jumps', 4, '8', undefined, 'Legs'),
+    e('aer_fn_a6', 'Broad Jumps', 4, '8', undefined, 'Legs', 'bodyweight'),
   ],
 };
 

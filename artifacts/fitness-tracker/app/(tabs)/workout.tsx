@@ -292,6 +292,7 @@ function SetRow({ setIndex, set, exercise, onChange, accentColor, onTimerPress }
   const colors = useColors();
   const isTime = exercise.unit === 'time';
   const isDistance = exercise.unit === 'distance';
+  const isBodyweight = exercise.unit === 'bodyweight';
 
   const toggleComplete = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -351,6 +352,17 @@ function SetRow({ setIndex, set, exercise, onChange, accentColor, onTimerPress }
             {exercise.targetDuration ?? 'Tap to start'}
           </Text>
         </Pressable>
+      ) : isBodyweight ? (
+        <View style={[styles.setInput, { flex: 1, backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TextInput
+            style={[styles.setInputText, { color: colors.foreground }]}
+            placeholder="reps"
+            placeholderTextColor={colors.mutedForeground}
+            keyboardType="numeric"
+            value={set.reps !== null ? String(set.reps) : ''}
+            onChangeText={v => onChange({ ...set, reps: v ? parseInt(v) : null })}
+          />
+        </View>
       ) : (
         <>
           <View style={[styles.setInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -466,6 +478,8 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, o
             <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>WEIGHT</Text>
             <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>DIST</Text>
           </>
+        ) : exercise.unit === 'bodyweight' ? (
+          <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>REPS</Text>
         ) : (
           <>
             <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>WEIGHT</Text>
