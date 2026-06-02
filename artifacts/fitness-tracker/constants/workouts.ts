@@ -8,7 +8,7 @@ export interface Exercise {
   targetReps?: string;
   targetDuration?: string;
   muscleGroup?: string;
-  unit: 'weight_reps' | 'time';
+  unit: 'weight_reps' | 'time' | 'distance';
 }
 
 export interface WorkoutDay {
@@ -25,7 +25,7 @@ export interface WorkoutDay {
 const e = (
   id: string, name: string, sets: number,
   reps: string | undefined, dur: string | undefined,
-  mg: string | undefined, unit: 'weight_reps' | 'time' = 'weight_reps'
+  mg: string | undefined, unit: 'weight_reps' | 'time' | 'distance' = 'weight_reps'
 ): Exercise => ({ id, name, targetSets: sets, targetReps: reps, targetDuration: dur, muscleGroup: mg, unit });
 
 /** Deterministically pick `count` items from `pool` starting at `seed`. */
@@ -45,7 +45,7 @@ export interface LibraryExercise {
   defaultSets: number;
   defaultReps?: string;
   defaultDuration?: string;
-  unit: 'weight_reps' | 'time';
+  unit: 'weight_reps' | 'time' | 'distance';
   tags: string[];
 }
 
@@ -111,7 +111,7 @@ export const EXERCISE_LIBRARY: LibraryExercise[] = [
   { id: 'lib_kb_swing', name: 'Kettlebell Swings', muscleGroup: 'Posterior Chain', defaultSets: 5, defaultReps: '20', unit: 'weight_reps', tags: ['crossfit', 'compound'] },
   { id: 'lib_wall_ball', name: 'Wall Ball Shots', muscleGroup: 'Full Body', defaultSets: 4, defaultReps: '20', unit: 'weight_reps', tags: ['crossfit', 'compound'] },
   { id: 'lib_power_clean', name: 'Power Clean', muscleGroup: 'Full Body', defaultSets: 5, defaultReps: '3', unit: 'weight_reps', tags: ['crossfit', 'olympic'] },
-  { id: 'lib_row_erg', name: 'Row Erg', muscleGroup: 'Cardio', defaultSets: 4, defaultDuration: '500m', unit: 'time', tags: ['crossfit', 'cardio'] },
+  { id: 'lib_row_erg', name: 'Row Erg', muscleGroup: 'Cardio', defaultSets: 4, defaultDuration: '500m', unit: 'distance', tags: ['crossfit', 'cardio'] },
 ];
 
 export function libraryExToExercise(lib: LibraryExercise): Exercise {
@@ -365,39 +365,39 @@ const CF_GYMNASTICS: Record<SkillLevel, Exercise[]> = {
 
 const CF_CONDITIONING: Record<SkillLevel, Exercise[]> = {
   novice: [
-    e('cfc_n1', 'Row Erg (Easy)', 1, undefined, '500m', 'Cardio', 'time'),
+    e('cfc_n1', 'Row Erg (Easy)', 1, undefined, '500m', 'Cardio', 'distance'),
     e('cfc_n2', 'Box Step-ups', 5, '10', undefined, 'Legs'),
     e('cfc_n3', 'KB Swings', 5, '15', undefined, 'Posterior Chain'),
     e('cfc_n4', 'Med Ball Slam', 5, '10', undefined, 'Full Body'),
     e('cfc_n5', 'Stationary Bike', 1, undefined, '10 min', 'Cardio', 'time'),
-    e('cfc_n6', 'Farmer Carry', 3, undefined, '40m', 'Full Body', 'time'),
-    e('cfc_n7', 'Sled Push (Light)', 4, undefined, '20m', 'Legs', 'time'),
-    e('cfc_n8', 'Bear Crawl', 4, undefined, '20m', 'Full Body', 'time'),
-    e('cfc_n9', 'Shuttle Run', 5, undefined, '10m × 4', 'Cardio', 'time'),
+    e('cfc_n6', 'Farmer Carry', 3, undefined, '40m', 'Full Body', 'distance'),
+    e('cfc_n7', 'Sled Push (Light)', 4, undefined, '20m', 'Legs', 'distance'),
+    e('cfc_n8', 'Bear Crawl', 4, undefined, '20m', 'Full Body', 'distance'),
+    e('cfc_n9', 'Shuttle Run', 5, undefined, '10m × 4', 'Cardio', 'distance'),
     e('cfc_n10', 'Jump Rope (Singles)', 5, undefined, '2 min', 'Cardio', 'time'),
   ],
   intermediate: [
-    e('cfc_i1', 'Row Erg Intervals', 5, undefined, '500m', 'Cardio', 'time'),
+    e('cfc_i1', 'Row Erg Intervals', 5, undefined, '500m', 'Cardio', 'distance'),
     e('cfc_i2', 'Box Jumps', 5, '10', undefined, 'Legs'),
     e('cfc_i3', 'Burpees', 5, '10', undefined, 'Full Body'),
     e('cfc_i4', 'Wall Ball Shots', 4, '20', undefined, 'Full Body'),
     e('cfc_i5', 'KB Swings (Heavy)', 5, '20', undefined, 'Posterior Chain'),
     e('cfc_i6', 'Double-under Attempts', 5, undefined, '1 min', 'Cardio', 'time'),
     e('cfc_i7', 'Assault Bike', 5, undefined, '30 sec on / 30 off', 'Cardio', 'time'),
-    e('cfc_i8', 'Sled Pull', 4, undefined, '20m', 'Legs', 'time'),
-    e('cfc_i9', 'Sandbag Carry', 3, undefined, '50m', 'Full Body', 'time'),
-    e('cfc_i10', 'Sprint Intervals', 8, undefined, '100m', 'Cardio', 'time'),
+    e('cfc_i8', 'Sled Pull', 4, undefined, '20m', 'Legs', 'distance'),
+    e('cfc_i9', 'Sandbag Carry', 3, undefined, '50m', 'Full Body', 'distance'),
+    e('cfc_i10', 'Sprint Intervals', 8, undefined, '100m', 'Cardio', 'distance'),
   ],
   advanced: [
     e('cfc_a1', 'Assault Bike Sprints', 10, undefined, '10 sec max / 50 sec rest', 'Cardio', 'time'),
     e('cfc_a2', 'Double-Unders', 5, '50', undefined, 'Cardio'),
-    e('cfc_a3', 'Row Erg (2k TT)', 1, undefined, '2000m max effort', 'Cardio', 'time'),
+    e('cfc_a3', 'Row Erg (2k TT)', 1, undefined, '2000m max effort', 'Cardio', 'distance'),
     e('cfc_a4', 'Box Jumps (30"+)', 5, '10', undefined, 'Legs'),
     e('cfc_a5', 'Burpee Box Jump-overs', 5, '10', undefined, 'Full Body'),
     e('cfc_a6', 'GHD Sit-ups', 4, '20', undefined, 'Core'),
     e('cfc_a7', 'Ski Erg Intervals', 5, undefined, '1 min on / 1 min off', 'Cardio', 'time'),
-    e('cfc_a8', 'Yoke Carry', 3, undefined, '20m max load', 'Full Body', 'time'),
-    e('cfc_a9', 'Handstand Walk', 4, undefined, '10m', 'Shoulders/Core', 'time'),
+    e('cfc_a8', 'Yoke Carry', 3, undefined, '20m max load', 'Full Body', 'distance'),
+    e('cfc_a9', 'Handstand Walk', 4, undefined, '10m', 'Shoulders/Core', 'distance'),
   ],
 };
 
@@ -407,7 +407,7 @@ const CF_METCON_OBJ: Record<SkillLevel, Exercise[]> = {
     e('cfm_n2', 'Box Step-up', 4, '15', undefined, 'Legs'),
     e('cfm_n3', 'Push-up', 4, '15', undefined, 'Chest'),
     e('cfm_n4', 'DB Thruster', 4, '10', undefined, 'Full Body'),
-    e('cfm_n5', 'Row Erg', 1, undefined, '500m', 'Cardio', 'time'),
+    e('cfm_n5', 'Row Erg', 1, undefined, '500m', 'Cardio', 'distance'),
     e('cfm_n6', 'Burpee', 4, '10', undefined, 'Full Body'),
     e('cfm_n7', 'Ring Row', 4, '10', undefined, 'Back'),
     e('cfm_n8', 'Jump Rope', 1, undefined, '2 min', 'Cardio', 'time'),
@@ -419,7 +419,7 @@ const CF_METCON_OBJ: Record<SkillLevel, Exercise[]> = {
     e('cfm_i4', 'Thruster', 5, '15', undefined, 'Full Body'),
     e('cfm_i5', 'Burpee', 5, '10', undefined, 'Full Body'),
     e('cfm_i6', 'Toes-to-Bar', 4, '10', undefined, 'Core'),
-    e('cfm_i7', 'Row Erg', 1, undefined, '500m', 'Cardio', 'time'),
+    e('cfm_i7', 'Row Erg', 1, undefined, '500m', 'Cardio', 'distance'),
     e('cfm_i8', 'KB Swing', 5, '20', undefined, 'Posterior Chain'),
     e('cfm_i9', 'Double-under', 1, undefined, '1 min', 'Cardio', 'time'),
     e('cfm_i10', 'HSPU', 4, '8', undefined, 'Shoulders'),
@@ -431,8 +431,8 @@ const CF_METCON_OBJ: Record<SkillLevel, Exercise[]> = {
     e('cfm_a4', 'Muscle-up', 4, '5', undefined, 'Full Body'),
     e('cfm_a5', 'GHD Sit-up', 4, '20', undefined, 'Core'),
     e('cfm_a6', 'Burpee Box Jump-over', 4, '10', undefined, 'Full Body'),
-    e('cfm_a7', 'Row Erg', 1, undefined, '500m', 'Cardio', 'time'),
-    e('cfm_a8', 'Handstand Walk', 2, undefined, '10m', 'Shoulders', 'time'),
+    e('cfm_a7', 'Row Erg', 1, undefined, '500m', 'Cardio', 'distance'),
+    e('cfm_a8', 'Handstand Walk', 2, undefined, '10m', 'Shoulders', 'distance'),
   ],
 };
 
@@ -515,7 +515,7 @@ const AER_FUNCTIONAL: Record<SkillLevel, Exercise[]> = {
     e('aer_fn_a2', 'Single-leg Bounds', 5, '10 each', undefined, 'Legs'),
     e('aer_fn_a3', 'Tuck Jumps', 4, '15', undefined, 'Legs'),
     e('aer_fn_a4', 'Explosive Push-ups', 4, '10', undefined, 'Chest'),
-    e('aer_fn_a5', 'Sprint Starts', 8, undefined, '20m', 'Cardio', 'time'),
+    e('aer_fn_a5', 'Sprint Starts', 8, undefined, '20m', 'Cardio', 'distance'),
     e('aer_fn_a6', 'Broad Jumps', 4, '8', undefined, 'Legs'),
   ],
 };

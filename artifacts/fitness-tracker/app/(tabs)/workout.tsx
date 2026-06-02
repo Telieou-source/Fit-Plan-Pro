@@ -283,6 +283,7 @@ interface SetRowProps {
 function SetRow({ setIndex, set, exercise, onChange, accentColor, onTimerPress }: SetRowProps) {
   const colors = useColors();
   const isTime = exercise.unit === 'time';
+  const isDistance = exercise.unit === 'distance';
 
   const toggleComplete = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -299,7 +300,27 @@ function SetRow({ setIndex, set, exercise, onChange, accentColor, onTimerPress }
     <View style={[styles.setRow, set.completed && { opacity: 0.55 }]}>
       <Text style={[styles.setNum, { color: colors.mutedForeground }]}>{setIndex + 1}</Text>
 
-      {isTime ? (
+      {isDistance ? (
+        /* Distance exercise: weight input + fixed distance badge */
+        <>
+          <View style={[styles.setInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TextInput
+              style={[styles.setInputText, { color: colors.foreground }]}
+              placeholder="lbs"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="numeric"
+              value={set.weight !== null ? String(set.weight) : ''}
+              onChangeText={v => onChange({ ...set, weight: v ? parseFloat(v) : null })}
+            />
+          </View>
+          <View style={[styles.setDistLabel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="navigate-outline" size={12} color={colors.mutedForeground} />
+            <Text style={[styles.setDistText, { color: colors.mutedForeground }]}>
+              {exercise.targetDuration ?? '–'}
+            </Text>
+          </View>
+        </>
+      ) : isTime ? (
         /* Tappable duration pill — tap to launch & auto-start timer */
         <Pressable
           onPress={handleTimerTap}
@@ -424,6 +445,11 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }:
         <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, width: 24 }]}>SET</Text>
         {exercise.unit === 'time' ? (
           <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>TAP TO START</Text>
+        ) : exercise.unit === 'distance' ? (
+          <>
+            <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>WEIGHT</Text>
+            <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>DIST</Text>
+          </>
         ) : (
           <>
             <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>WEIGHT</Text>
@@ -651,6 +677,8 @@ const styles = StyleSheet.create({
   setLabel: { fontSize: 14, width: 16, textAlign: 'center' },
   setTimerPill: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   setTimerText: { fontSize: 15, fontWeight: '700' },
+  setDistLabel: { flex: 1, height: 40, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  setDistText: { fontSize: 13, fontWeight: '600' },
   checkBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   exFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   exProgress: { fontSize: 13, fontWeight: '600' },
