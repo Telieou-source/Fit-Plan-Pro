@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   Platform,
@@ -89,6 +90,7 @@ const statStyles = StyleSheet.create({
 export default function ProgressScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { profile, workoutLogs, workoutPlan } = useAppContext();
 
   const accentColor = profile ? PROGRAM_INFO[profile.programType].color : colors.primary;
@@ -198,7 +200,16 @@ export default function ProgressScreen() {
       contentContainerStyle={[styles.scroll, { paddingTop: topPad + 12, paddingBottom: bottomPad + 80 }]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.screenTitle, { color: colors.foreground }]}>Progress</Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.screenTitle, { color: colors.foreground }]}>Progress</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/progress-report')}
+          style={[styles.reportBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <Ionicons name="document-text-outline" size={15} color={colors.foreground} />
+          <Text style={[styles.reportBtnText, { color: colors.foreground }]}>Full Report</Text>
+        </TouchableOpacity>
+      </View>
 
       {completedLogs.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -332,7 +343,10 @@ export default function ProgressScreen() {
 
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16 },
-  screenTitle: { fontSize: 30, fontWeight: '800', marginBottom: 20 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  screenTitle: { fontSize: 30, fontWeight: '800' },
+  reportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  reportBtnText: { fontSize: 13, fontWeight: '600' },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
   section: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 14 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 14 },

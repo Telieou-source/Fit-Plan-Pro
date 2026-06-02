@@ -28,6 +28,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="edit-workout/[dayIndex]" />
+      <Stack.Screen name="progress-report" />
     </Stack>
   );
 }
