@@ -11,8 +11,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext, BodyEntry } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
@@ -20,6 +22,59 @@ import { PROGRAM_INFO } from '@/constants/workouts';
 
 function makeId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+}
+
+// ─── Trend Line Chart ─────────────────────────────────────────────────────────
+
+interface TrendChartProps {
+  data: { label: string; value: number }[];
+  color: string;
+  unit: string;
+}
+
+function TrendChart({ data, color, unit }: TrendChartProps) {
+  const colors = useColors();
+  const { width: screenW } = useWindowDimensions();
+  const W = screenW - 64;
+  const H = 90;
+  const PAD_L = 40;
+  const PAD_R = 8;
+  const PAD_T = 12;
+  const PAD_B = 24;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+
+  if (data.length < 2) return null;
+
+  const values = data.map(d => d.value);
+  const minV = Math.min(...values);
+  const maxV = Math.max(...values);
+  const range = maxV - minV || 1;
+
+  const toX = (i: number) => PAD_L + (i / (data.length - 1)) * plotW;
+  const toY = (v: number) => PAD_T + plotH - ((v - minV) / range) * plotH;
+
+  const pathD = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${toX(i)} ${toY(d.value)}`).join(' ');
+
+  const showLabels = data.length <= 8;
+
+  return (
+    <Svg width={W} height={H}>
+      <SvgText x={PAD_L - 4} y={PAD_T + 4} fontSize="9" fill={colors.mutedForeground} textAnchor="end">{maxV}{unit}</SvgText>
+      <SvgText x={PAD_L - 4} y={PAD_T + plotH + 4} fontSize="9" fill={colors.mutedForeground} textAnchor="end">{minV}{unit}</SvgText>
+      <Line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={PAD_T + plotH} stroke={colors.border} strokeWidth="1" />
+      <Line x1={PAD_L} y1={PAD_T + plotH} x2={PAD_L + plotW} y2={PAD_T + plotH} stroke={colors.border} strokeWidth="1" />
+      <Path d={pathD} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      {data.map((d, i) => (
+        <React.Fragment key={i}>
+          <Circle cx={toX(i)} cy={toY(d.value)} r="3" fill={color} />
+          {showLabels && (
+            <SvgText x={toX(i)} y={H - 4} fontSize="8.5" fill={colors.mutedForeground} textAnchor="middle">{d.label}</SvgText>
+          )}
+        </React.Fragment>
+      ))}
+    </Svg>
+  );
 }
 
 function todayStr() {
@@ -249,6 +304,60 @@ export default function BodyScreen() {
           </View>
         )}
 
+        {bodyEntries.length >= 2 && (() => {
+          const sorted = [...bodyEntries].sort((a, b) => a.date.localeCompare(b.date));
+          const label = (iso: string) => {
+            const d = new Date(iso + 'T00:00:00');
+            return (d.getMonth() + 1) + '/' + d.getDate();
+          };
+
+          const measureFields: { key: keyof BodyEntry; label: string; unit: string }[] = [
+            { key: 'weight', label: 'Body Weight', unit: ' lbs' },
+            { key: 'chest', label: 'Chest', unit: '"' },
+            { key: 'waist', label: 'Waist', unit: '"' },
+            { key: 'hips', label: 'Hips', unit: '"' },
+            { key: 'arms', label: 'Arms', unit: '"' },
+            { key: 'thighs', label: 'Thighs', unit: '"' },
+          ];
+
+          const charts = measureFields
+            .map(f => ({
+              ...f,
+              data: sorted
+                .filter(e => e[f.key] != null)
+                .map(e => ({ label: label(e.date), value: e[f.key] as number })),
+            }))
+            .filter(c => c.data.length >= 2);
+
+          if (charts.length === 0) return null;
+          return (
+            <View style={[styles.trendCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.trendTitle, { color: colors.foreground }]}>Trends</Text>
+              {charts.map((c, i) => (
+                <View key={c.key as string} style={[styles.trendItem, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
+                  <View style={styles.trendLabelRow}>
+                    <Text style={[styles.trendLabel, { color: colors.mutedForeground }]}>{c.label.toUpperCase()}</Text>
+                    <Text style={[styles.trendChange, {
+                      color: (() => {
+                        const delta = c.data[c.data.length - 1].value - c.data[0].value;
+                        if (c.key === 'weight') return delta <= 0 ? '#30D158' : '#FF6B35';
+                        if (c.key === 'waist' || c.key === 'hips' || c.key === 'thighs') return delta <= 0 ? '#30D158' : '#FF6B35';
+                        return delta >= 0 ? accentColor : '#FF6B35';
+                      })(),
+                    }]}>
+                      {(() => {
+                        const delta = (c.data[c.data.length - 1].value - c.data[0].value).toFixed(1);
+                        return (parseFloat(delta) >= 0 ? '+' : '') + delta + c.unit;
+                      })()}
+                    </Text>
+                  </View>
+                  <TrendChart data={c.data.slice(-12)} color={accentColor} unit={c.unit} />
+                </View>
+              ))}
+            </View>
+          );
+        })()}
+
         {bodyEntries.length > 0 && (
           <>
             <Text style={[styles.historyLabel, { color: colors.mutedForeground }]}>HISTORY</Text>
@@ -289,4 +398,10 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700' },
   emptyDesc: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
   historyLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
+  trendCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 14 },
+  trendTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  trendItem: { paddingVertical: 14 },
+  trendLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  trendLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
+  trendChange: { fontSize: 14, fontWeight: '700' },
 });

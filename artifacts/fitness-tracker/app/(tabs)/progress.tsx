@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -165,6 +166,29 @@ export default function ProgressScreen() {
     return Object.values(bests).slice(0, 8);
   }, [completedLogs]);
 
+  const exerciseProgression = useMemo(() => {
+    const history: Record<string, { name: string; sessions: { date: string; maxWeight: number }[] }> = {};
+    completedLogs.forEach(log => {
+      log.exerciseLogs.forEach(el => {
+        const weights = el.sets.filter(s => s.completed && s.weight != null).map(s => s.weight!);
+        if (weights.length === 0) return;
+        const maxW = Math.max(...weights);
+        if (!history[el.exerciseId]) history[el.exerciseId] = { name: el.exerciseName, sessions: [] };
+        history[el.exerciseId].sessions.push({ date: log.date, maxWeight: maxW });
+      });
+    });
+    return Object.entries(history)
+      .map(([id, { name, sessions }]) => ({
+        id, name,
+        sessions: sessions.sort((a, b) => a.date.localeCompare(b.date)).slice(-8),
+      }))
+      .filter(e => e.sessions.length >= 2)
+      .sort((a, b) => b.sessions.length - a.sessions.length)
+      .slice(0, 6);
+  }, [completedLogs]);
+
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
+
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -229,6 +253,54 @@ export default function ProgressScreen() {
             </View>
           )}
 
+          {exerciseProgression.length > 0 && (
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Strength Progression</Text>
+              {exerciseProgression.map((ex, i) => {
+                const isExpanded = expandedExercise === ex.id;
+                const first = ex.sessions[0].maxWeight;
+                const last = ex.sessions[ex.sessions.length - 1].maxWeight;
+                const delta = last - first;
+                const maxW = Math.max(...ex.sessions.map(s => s.maxWeight));
+                return (
+                  <TouchableOpacity
+                    key={ex.id}
+                    onPress={() => setExpandedExercise(isExpanded ? null : ex.id)}
+                    style={[progStyles.exRow, i < exerciseProgression.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                    activeOpacity={0.7}
+                  >
+                    <View style={progStyles.exHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[progStyles.exName, { color: colors.foreground }]}>{ex.name}</Text>
+                        <Text style={[progStyles.exSub, { color: colors.mutedForeground }]}>
+                          {ex.sessions.length} sessions · {first} → {last} lbs
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                        <Text style={[progStyles.exDelta, { color: delta >= 0 ? accentColor : '#FF3B30' }]}>
+                          {delta >= 0 ? '+' : ''}{delta} lbs
+                        </Text>
+                        <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} />
+                      </View>
+                    </View>
+                    {isExpanded && (
+                      <View style={{ marginTop: 12 }}>
+                        <MiniBarChart
+                          data={ex.sessions.map(s => ({
+                            label: new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+                            value: s.maxWeight,
+                          }))}
+                          max={maxW}
+                          color={accentColor}
+                        />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Recent Workouts</Text>
             {[...completedLogs].reverse().slice(0, 10).map((log, i, arr) => {
@@ -282,4 +354,12 @@ const styles = StyleSheet.create({
   logDate: { fontSize: 12, marginTop: 2 },
   logSets: { fontSize: 13, fontWeight: '500' },
   logCal: { fontSize: 11, fontWeight: '600' },
+});
+
+const progStyles = StyleSheet.create({
+  exRow: { paddingVertical: 12 },
+  exHeader: { flexDirection: 'row', alignItems: 'center' },
+  exName: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
+  exSub: { fontSize: 12 },
+  exDelta: { fontSize: 15, fontWeight: '700' },
 });

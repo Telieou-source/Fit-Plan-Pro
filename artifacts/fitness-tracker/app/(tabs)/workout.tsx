@@ -53,20 +53,34 @@ function todayStr() {
   return new Date().toISOString().split('T')[0];
 }
 
-function initSets(exercise: Exercise, count: number): SetLog[] {
+function initSets(exercise: Exercise, count: number, lastWeight?: number | null): SetLog[] {
   return Array.from({ length: count }, () => ({
-    weight: null,
+    weight: lastWeight ?? null,
     reps: null,
     durationSecs: null,
     completed: false,
   }));
 }
 
-function initExerciseLogs(workout: WorkoutDay): ExerciseLog[] {
+function getLastUsedWeight(exerciseId: string, logs: WorkoutLog[]): number | null {
+  const sorted = [...logs].sort((a, b) => b.date.localeCompare(a.date));
+  for (const log of sorted) {
+    for (const el of log.exerciseLogs) {
+      if (el.exerciseId === exerciseId) {
+        for (const set of el.sets) {
+          if (set.completed && set.weight != null) return set.weight;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function initExerciseLogs(workout: WorkoutDay, prevLogs: WorkoutLog[] = []): ExerciseLog[] {
   return workout.exercises.map(ex => ({
     exerciseId: ex.id,
     exerciseName: ex.name,
-    sets: initSets(ex, ex.targetSets),
+    sets: initSets(ex, ex.targetSets, getLastUsedWeight(ex.id, prevLogs)),
   }));
 }
 
@@ -540,7 +554,7 @@ export default function WorkoutScreen() {
   );
 
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(() =>
-    existingLog ? existingLog.exerciseLogs : (todayWorkout ? initExerciseLogs(todayWorkout) : [])
+    existingLog ? existingLog.exerciseLogs : (todayWorkout ? initExerciseLogs(todayWorkout, workoutLogs) : [])
   );
   const [localExercises, setLocalExercises] = useState<Exercise[]>(() => todayWorkout?.exercises ?? []);
   const [logId] = useState(() => existingLog?.id ?? makeId());
@@ -551,7 +565,7 @@ export default function WorkoutScreen() {
 
   useEffect(() => {
     if (!existingLog && todayWorkout) {
-      setExerciseLogs(initExerciseLogs(todayWorkout));
+      setExerciseLogs(initExerciseLogs(todayWorkout, workoutLogs));
     } else if (existingLog) {
       setExerciseLogs(existingLog.exerciseLogs);
     }
@@ -613,7 +627,7 @@ export default function WorkoutScreen() {
     setLocalExercises(prev => prev.map((ex, i) => i === index ? replacement : ex));
     setExerciseLogs(prev => prev.map((log, i) =>
       i === index
-        ? { exerciseId: replacement.id, exerciseName: replacement.name, sets: initSets(replacement, replacement.targetSets) }
+        ? { exerciseId: replacement.id, exerciseName: replacement.name, sets: initSets(replacement, replacement.targetSets, getLastUsedWeight(replacement.id, workoutLogs)) }
         : log
     ));
   }, [profile, localExercises]);
