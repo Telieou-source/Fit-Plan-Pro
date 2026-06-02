@@ -503,7 +503,7 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, o
 export default function WorkoutScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, workoutPlan, workoutLogs, saveWorkoutLog, getCurrentWorkoutDayIndex } = useAppContext();
+  const { profile, workoutPlan, workoutLogs, saveWorkoutLog, getCurrentWorkoutDayIndex, customExercises } = useAppContext();
 
   const dayIndex = getCurrentWorkoutDayIndex();
   const todayWorkout: WorkoutDay | null = workoutPlan[dayIndex] ?? null;
@@ -551,7 +551,7 @@ export default function WorkoutScreen() {
 
   const handleShuffleExercise = useCallback((index: number) => {
     if (!profile) return;
-    const pool = getProgramExercisePool(profile.programType, profile.skillLevel);
+    const pool = [...getProgramExercisePool(profile.programType, profile.skillLevel), ...customExercises];
     const inUseIds = new Set(localExercises.map(ex => ex.id));
     const current = localExercises[index];
 

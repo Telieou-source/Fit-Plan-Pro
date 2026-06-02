@@ -31,7 +31,7 @@ export default function EditWorkoutScreen() {
   const insets = useSafeAreaInsets();
   const { dayIndex: rawIndex } = useLocalSearchParams<{ dayIndex: string }>();
   const dayIndex = parseInt(rawIndex ?? '0', 10);
-  const { effectivePlan, workoutPlan, profile, updateWorkoutDay, resetWorkoutPlan } = useAppContext();
+  const { effectivePlan, workoutPlan, profile, updateWorkoutDay, resetWorkoutPlan, customExercises, saveCustomExercise, deleteCustomExercise } = useAppContext();
 
   const day = effectivePlan[dayIndex];
   const [exercises, setExercises] = useState<Exercise[]>(day?.exercises ?? []);
@@ -52,6 +52,12 @@ export default function EditWorkoutScreen() {
       e.tags.some(t => t.includes(q))
     );
   }, [search]);
+
+  const filteredCustom = useMemo(() => {
+    if (!search.trim()) return customExercises;
+    const q = search.toLowerCase();
+    return customExercises.filter(e => e.name.toLowerCase().includes(q));
+  }, [search, customExercises]);
 
   const removeExercise = (index: number) => {
     if (exercises.length <= 1) { Alert.alert('Cannot remove', 'A workout must have at least one exercise.'); return; }
@@ -77,6 +83,7 @@ export default function EditWorkoutScreen() {
       unit: 'weight_reps',
     };
     setExercises(prev => [...prev, custom]);
+    saveCustomExercise(custom);
     setCustomName('');
   };
 
@@ -237,6 +244,38 @@ export default function EditWorkoutScreen() {
             data={filteredLibrary}
             keyExtractor={item => item.id}
             contentContainerStyle={{ paddingBottom: 40 }}
+            ListHeaderComponent={
+              <View>
+                {filteredCustom.length > 0 && (
+                  <>
+                    <Text style={[styles.pickerSectionLabel, { color: colors.mutedForeground }]}>MY EXERCISES</Text>
+                    {filteredCustom.map(ex => (
+                      <View key={ex.id} style={[styles.libRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+                        <Pressable
+                          onPress={() => { Haptics.selectionAsync(); setExercises(prev => [...prev, ex]); setShowPicker(false); }}
+                          style={({ pressed }) => [styles.libPressable, { opacity: pressed ? 0.7 : 1 }]}
+                        >
+                          <View style={styles.libInfo}>
+                            <Text style={[styles.libName, { color: colors.foreground }]}>{ex.name}</Text>
+                            <Text style={[styles.libMeta, { color: colors.mutedForeground }]}>
+                              My exercises · {ex.targetSets} sets{ex.targetReps ? ` · ${ex.targetReps}` : ''}
+                            </Text>
+                          </View>
+                          <Ionicons name="add" size={22} color={accentColor} />
+                        </Pressable>
+                        <TouchableOpacity
+                          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); deleteCustomExercise(ex.id); }}
+                          style={styles.libYtBtn}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </>
+                )}
+                <Text style={[styles.pickerSectionLabel, { color: colors.mutedForeground }]}>EXERCISE LIBRARY</Text>
+              </View>
+            }
             renderItem={({ item }) => (
               <View style={[styles.libRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
                 <Pressable
@@ -293,6 +332,7 @@ const styles = StyleSheet.create({
   customAddBtnText: { fontSize: 14, fontWeight: '700' },
   searchRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginBottom: 4, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, height: 42, gap: 8 },
   searchInput: { flex: 1, fontSize: 15, height: 42 },
+  pickerSectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
   libRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1 },
   libPressable: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingLeft: 16, paddingRight: 8 },
   libInfo: { flex: 1 },

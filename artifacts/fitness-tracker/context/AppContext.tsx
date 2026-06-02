@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { generateWorkoutPlan, ProgramType, SkillLevel, WorkoutDay } from '@/constants/workouts';
+import { generateWorkoutPlan, ProgramType, SkillLevel, WorkoutDay, Exercise } from '@/constants/workouts';
 
 export type { ProgramType, SkillLevel };
 
@@ -54,10 +54,13 @@ interface AppContextType {
   bodyEntries: BodyEntry[];
   isLoaded: boolean;
   weekNumber: number;                   // how many full weeks completed
+  customExercises: Exercise[];
   setProfile: (profile: UserProfile) => Promise<void>;
   saveWorkoutLog: (log: WorkoutLog) => Promise<void>;
   saveBodyEntry: (entry: BodyEntry) => Promise<void>;
   deleteBodyEntry: (id: string) => Promise<void>;
+  saveCustomExercise: (exercise: Exercise) => Promise<void>;
+  deleteCustomExercise: (id: string) => Promise<void>;
   getCurrentWorkoutDayIndex: () => number; // -1 = rest day
   isRestDay: () => boolean;
   updateWorkoutDay: (dayIndex: number, updatedDay: WorkoutDay) => Promise<void>;
@@ -72,6 +75,7 @@ const KEYS = {
   WORKOUT_LOGS: '@fittrack_workout_logs',
   BODY_ENTRIES: '@fittrack_body_entries',
   CUSTOM_PLAN: '@fittrack_custom_plan',
+  CUSTOM_EXERCISES: '@fittrack_custom_exercises',
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -79,16 +83,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [customWorkoutPlan, setCustomWorkoutPlan] = useState<WorkoutDay[] | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [bodyEntries, setBodyEntries] = useState<BodyEntry[]>([]);
+  const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [profileRaw, logsRaw, bodyRaw, customRaw] = await Promise.all([
+        const [profileRaw, logsRaw, bodyRaw, customRaw, customExRaw] = await Promise.all([
           AsyncStorage.getItem(KEYS.PROFILE),
           AsyncStorage.getItem(KEYS.WORKOUT_LOGS),
           AsyncStorage.getItem(KEYS.BODY_ENTRIES),
           AsyncStorage.getItem(KEYS.CUSTOM_PLAN),
+          AsyncStorage.getItem(KEYS.CUSTOM_EXERCISES),
         ]);
         if (profileRaw) {
           const p: UserProfile = JSON.parse(profileRaw);
@@ -100,6 +106,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (logsRaw) setWorkoutLogs(JSON.parse(logsRaw));
         if (bodyRaw) setBodyEntries(JSON.parse(bodyRaw));
         if (customRaw) setCustomWorkoutPlan(JSON.parse(customRaw));
+        if (customExRaw) setCustomExercises(JSON.parse(customExRaw));
       } catch (_) { /* ignore */ }
       setIsLoaded(true);
     })();
@@ -154,6 +161,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const saveCustomExercise = useCallback(async (exercise: Exercise) => {
+    setCustomExercises(prev => {
+      if (prev.some(e => e.id === exercise.id)) return prev;
+      const next = [exercise, ...prev];
+      AsyncStorage.setItem(KEYS.CUSTOM_EXERCISES, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const deleteCustomExercise = useCallback(async (id: string) => {
+    setCustomExercises(prev => {
+      const next = prev.filter(e => e.id !== id);
+      AsyncStorage.setItem(KEYS.CUSTOM_EXERCISES, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const getCurrentWorkoutDayIndex = useCallback((): number => {
     if (!profile) return 0;
     const { preferredDays, daysPerWeek } = profile;
@@ -190,13 +214,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCustomWorkoutPlan(null);
     setWorkoutLogs([]);
     setBodyEntries([]);
+    setCustomExercises([]);
   }, []);
 
   return (
     <AppContext.Provider value={{
       profile, workoutPlan, customWorkoutPlan, effectivePlan,
-      workoutLogs, bodyEntries, isLoaded, weekNumber,
+      workoutLogs, bodyEntries, isLoaded, weekNumber, customExercises,
       setProfile, saveWorkoutLog, saveBodyEntry, deleteBodyEntry,
+      saveCustomExercise, deleteCustomExercise,
       getCurrentWorkoutDayIndex, isRestDay,
       updateWorkoutDay, resetWorkoutPlan, resetProfile,
     }}>
