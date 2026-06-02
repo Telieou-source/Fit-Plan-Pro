@@ -61,7 +61,7 @@ function initExerciseLogs(workout: WorkoutDay): ExerciseLog[] {
   }));
 }
 
-/** Parse "45 sec", "2 min", "60s", "90" → seconds */
+/** Parse "45 sec", "2 min", "60s", plain numbers → seconds */
 function parseDurationToSecs(dur: string | undefined): number {
   if (!dur) return 60;
   const minMatch = dur.match(/(\d+)\s*(min|m\b)/i);
@@ -88,23 +88,33 @@ interface TimerModalProps {
   visible: boolean;
   onClose: () => void;
   initialSecs: number;
+  autoStart?: boolean;
   accentColor: string;
+  onComplete?: () => void;
 }
 
-function TimerModal({ visible, onClose, initialSecs, accentColor }: TimerModalProps) {
+function TimerModal({ visible, onClose, initialSecs, autoStart = false, accentColor, onComplete }: TimerModalProps) {
   const colors = useColors();
   const [target, setTarget] = useState(initialSecs);
   const [remaining, setRemaining] = useState(initialSecs);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const ivRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    setTarget(initialSecs);
-    setRemaining(initialSecs);
-    setRunning(false);
-    setDone(false);
-  }, [initialSecs, visible]);
+    if (visible) {
+      if (ivRef.current) clearInterval(ivRef.current);
+      setTarget(initialSecs);
+      setRemaining(initialSecs);
+      setDone(false);
+      setRunning(autoStart);
+    } else {
+      if (ivRef.current) clearInterval(ivRef.current);
+      setRunning(false);
+    }
+  }, [initialSecs, visible, autoStart]);
 
   useEffect(() => {
     if (running) {
@@ -115,6 +125,7 @@ function TimerModal({ visible, onClose, initialSecs, accentColor }: TimerModalPr
             setRunning(false);
             setDone(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onCompleteRef.current?.();
             return 0;
           }
           return r - 1;
@@ -194,7 +205,8 @@ function TimerModal({ visible, onClose, initialSecs, accentColor }: TimerModalPr
               <Text style={[ts.timeText, { color: done ? '#30D158' : colors.foreground }]}>
                 {formatTime(remaining)}
               </Text>
-              {done && <Text style={[ts.subText, { color: '#30D158' }]}>Done!</Text>}
+              {done && <Text style={[ts.subText, { color: '#30D158' }]}>Set done!</Text>}
+              {!done && running && <Text style={[ts.subText, { color: accentColor }]}>Go!</Text>}
               {!done && !running && remaining < target && (
                 <Text style={[ts.subText, { color: colors.mutedForeground }]}>Paused</Text>
               )}
@@ -265,9 +277,10 @@ interface SetRowProps {
   exercise: Exercise;
   onChange: (updated: SetLog) => void;
   accentColor: string;
+  onTimerPress: (secs: number, onComplete?: () => void, autoStart?: boolean) => void;
 }
 
-function SetRow({ setIndex, set, exercise, onChange, accentColor }: SetRowProps) {
+function SetRow({ setIndex, set, exercise, onChange, accentColor, onTimerPress }: SetRowProps) {
   const colors = useColors();
   const isTime = exercise.unit === 'time';
 
@@ -276,24 +289,39 @@ function SetRow({ setIndex, set, exercise, onChange, accentColor }: SetRowProps)
     onChange({ ...set, completed: !set.completed });
   };
 
+  const handleTimerTap = () => {
+    const secs = parseDurationToSecs(exercise.targetDuration);
+    // auto-start the timer and auto-check this set when done
+    onTimerPress(secs, () => onChange({ ...set, completed: true }), true);
+  };
+
   return (
-    <View style={[styles.setRow, set.completed && { opacity: 0.6 }]}>
+    <View style={[styles.setRow, set.completed && { opacity: 0.55 }]}>
       <Text style={[styles.setNum, { color: colors.mutedForeground }]}>{setIndex + 1}</Text>
 
       {isTime ? (
-        <>
-          <View style={[styles.setInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TextInput
-              style={[styles.setInputText, { color: colors.foreground }]}
-              placeholder="min"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="numeric"
-              value={set.durationSecs ? String(Math.floor(set.durationSecs / 60)) : ''}
-              onChangeText={v => onChange({ ...set, durationSecs: v ? parseInt(v) * 60 : null })}
-            />
-          </View>
-          <Text style={[styles.setLabel, { color: colors.mutedForeground }]}>min</Text>
-        </>
+        /* Tappable duration pill — tap to launch & auto-start timer */
+        <Pressable
+          onPress={handleTimerTap}
+          disabled={set.completed}
+          style={({ pressed }) => [
+            styles.setTimerPill,
+            {
+              backgroundColor: set.completed ? colors.card : accentColor + '18',
+              borderColor: set.completed ? colors.border : accentColor + '55',
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Ionicons
+            name={set.completed ? 'checkmark-circle' : 'timer-outline'}
+            size={15}
+            color={set.completed ? colors.mutedForeground : accentColor}
+          />
+          <Text style={[styles.setTimerText, { color: set.completed ? colors.mutedForeground : accentColor }]}>
+            {exercise.targetDuration ?? 'Tap to start'}
+          </Text>
+        </Pressable>
       ) : (
         <>
           <View style={[styles.setInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -337,7 +365,7 @@ interface ExerciseCardProps {
   log: ExerciseLog;
   onLogChange: (updated: ExerciseLog) => void;
   accentColor: string;
-  onTimerPress: (secs: number) => void;
+  onTimerPress: (secs: number, onComplete?: () => void, autoStart?: boolean) => void;
 }
 
 function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }: ExerciseCardProps) {
@@ -372,13 +400,15 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }:
             {exercise.targetDuration ? ` · ${exercise.targetDuration}` : ''}
           </Text>
           <View style={styles.exActions}>
-            <TouchableOpacity
-              onPress={() => onTimerPress(parseDurationToSecs(exercise.targetDuration))}
-              style={[styles.actionBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-            >
-              <Ionicons name="timer-outline" size={13} color={colors.mutedForeground} />
-              <Text style={[styles.actionBtnText, { color: colors.mutedForeground }]}>Timer</Text>
-            </TouchableOpacity>
+            {exercise.unit !== 'time' && (
+              <TouchableOpacity
+                onPress={() => onTimerPress(60)}
+                style={[styles.actionBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+              >
+                <Ionicons name="timer-outline" size={13} color={colors.mutedForeground} />
+                <Text style={[styles.actionBtnText, { color: colors.mutedForeground }]}>Timer</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={() => openExerciseVideo(exercise.name)}
               style={[styles.actionBtn, { backgroundColor: accentColor + '15', borderColor: accentColor + '40' }]}
@@ -393,7 +423,7 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }:
       <View style={styles.setHeaderRow}>
         <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, width: 24 }]}>SET</Text>
         {exercise.unit === 'time' ? (
-          <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>DURATION</Text>
+          <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>TAP TO START</Text>
         ) : (
           <>
             <Text style={[styles.setHeaderLabel, { color: colors.mutedForeground, flex: 1 }]}>WEIGHT</Text>
@@ -404,7 +434,15 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }:
       </View>
 
       {log.sets.map((set, i) => (
-        <SetRow key={i} setIndex={i} set={set} exercise={exercise} onChange={u => updateSet(i, u)} accentColor={accentColor} />
+        <SetRow
+          key={i}
+          setIndex={i}
+          set={set}
+          exercise={exercise}
+          onChange={u => updateSet(i, u)}
+          accentColor={accentColor}
+          onTimerPress={onTimerPress}
+        />
       ))}
 
       <View style={styles.exFooter}>
@@ -440,6 +478,8 @@ export default function WorkoutScreen() {
   const [logId] = useState(() => existingLog?.id ?? makeId());
   const [timerVisible, setTimerVisible] = useState(false);
   const [timerInitSecs, setTimerInitSecs] = useState(60);
+  const [timerAutoStart, setTimerAutoStart] = useState(false);
+  const [timerOnComplete, setTimerOnComplete] = useState<(() => void) | undefined>(undefined);
 
   useEffect(() => {
     if (!existingLog && todayWorkout) {
@@ -454,9 +494,11 @@ export default function WorkoutScreen() {
   const totalSets = exerciseLogs.reduce((acc, el) => acc + el.sets.length, 0);
   const isWorkoutDone = existingLog?.completed ?? false;
 
-  const openTimer = useCallback((secs: number) => {
+  const openTimer = useCallback((secs: number, onComplete?: () => void, autoStart = false) => {
     Haptics.selectionAsync();
     setTimerInitSecs(secs);
+    setTimerAutoStart(autoStart);
+    setTimerOnComplete(() => onComplete);
     setTimerVisible(true);
   }, []);
 
@@ -518,7 +560,7 @@ export default function WorkoutScreen() {
               style={[styles.headerTimerBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               <Ionicons name="timer-outline" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.headerTimerText, { color: colors.mutedForeground }]}>Timer</Text>
+              <Text style={[styles.headerTimerText, { color: colors.mutedForeground }]}>Rest timer</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -564,7 +606,9 @@ export default function WorkoutScreen() {
         visible={timerVisible}
         onClose={() => setTimerVisible(false)}
         initialSecs={timerInitSecs}
+        autoStart={timerAutoStart}
         accentColor={accentColor}
+        onComplete={timerOnComplete}
       />
     </KeyboardAvoidingView>
   );
@@ -605,6 +649,8 @@ const styles = StyleSheet.create({
   setInput: { flex: 1, height: 40, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, justifyContent: 'center' },
   setInputText: { fontSize: 15, fontWeight: '500', textAlign: 'center' },
   setLabel: { fontSize: 14, width: 16, textAlign: 'center' },
+  setTimerPill: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  setTimerText: { fontSize: 15, fontWeight: '700' },
   checkBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   exFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   exProgress: { fontSize: 13, fontWeight: '600' },
