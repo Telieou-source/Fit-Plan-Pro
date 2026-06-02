@@ -97,6 +97,11 @@ export default function ProgressScreen() {
     [workoutLogs]
   );
 
+  const totalCalories = useMemo(() =>
+    completedLogs.reduce((sum, l) => sum + (l.caloriesBurned ?? 0), 0),
+    [completedLogs]
+  );
+
   const weeklyData = useMemo(() => {
     const counts: Record<string, number> = {};
     completedLogs.forEach(l => {
@@ -110,6 +115,22 @@ export default function ProgressScreen() {
       return { label, value: val };
     });
   }, [completedLogs]);
+
+  const weeklyCalories = useMemo(() => {
+    const cals: Record<string, number> = {};
+    completedLogs.forEach(l => {
+      const key = getWeekKey(l.date);
+      cals[key] = (cals[key] ?? 0) + (l.caloriesBurned ?? 0);
+    });
+    const weeks = Object.entries(cals).sort(([a], [b]) => a.localeCompare(b)).slice(-8);
+    return weeks.map(([key, val]) => {
+      const d = new Date(key + 'T00:00:00');
+      const label = (d.getMonth() + 1) + '/' + d.getDate();
+      return { label, value: val };
+    });
+  }, [completedLogs]);
+
+  const weeklyCalMax = useMemo(() => Math.max(...weeklyCalories.map(d => d.value), 1), [weeklyCalories]);
 
   const weekMax = useMemo(() => Math.max(...weeklyData.map(d => d.value), profile?.daysPerWeek ?? 1), [weeklyData, profile]);
 
@@ -167,6 +188,12 @@ export default function ProgressScreen() {
             <StatCard label="WORKOUTS" value={completedLogs.length} sub="completed" color={accentColor} />
             <StatCard label="STREAK" value={streak} sub="workouts" color={accentColor} />
           </View>
+          {totalCalories > 0 && (
+            <View style={styles.statsRow}>
+              <StatCard label="TOTAL CALORIES" value={totalCalories.toLocaleString()} sub="kcal burned" color="#FF6B35" />
+              <StatCard label="AVG / SESSION" value={Math.round(totalCalories / completedLogs.length).toLocaleString()} sub="kcal" color="#FF6B35" />
+            </View>
+          )}
 
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Workouts per Week</Text>
@@ -176,6 +203,13 @@ export default function ProgressScreen() {
               <Text style={[styles.noData, { color: colors.mutedForeground }]}>No data yet</Text>
             )}
           </View>
+
+          {weeklyCalories.length > 0 && (
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Calories per Week</Text>
+              <MiniBarChart data={weeklyCalories} max={weeklyCalMax} color="#FF6B35" />
+            </View>
+          )}
 
           {exercisePRs.length > 0 && (
             <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -206,9 +240,14 @@ export default function ProgressScreen() {
                     <Text style={[styles.logName, { color: colors.foreground }]}>{day?.focus ?? 'Workout'}</Text>
                     <Text style={[styles.logDate, { color: colors.mutedForeground }]}>{formatDate(log.date)}</Text>
                   </View>
-                  <Text style={[styles.logSets, { color: colors.mutedForeground }]}>
-                    {log.exerciseLogs.reduce((a, el) => a + el.sets.filter(s => s.completed).length, 0)} sets
-                  </Text>
+                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                    <Text style={[styles.logSets, { color: colors.mutedForeground }]}>
+                      {log.exerciseLogs.reduce((a, el) => a + el.sets.filter(s => s.completed).length, 0)} sets
+                    </Text>
+                    {log.caloriesBurned != null && (
+                      <Text style={[styles.logCal, { color: '#FF6B35' }]}>🔥 {log.caloriesBurned} cal</Text>
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -242,4 +281,5 @@ const styles = StyleSheet.create({
   logName: { fontSize: 15, fontWeight: '600' },
   logDate: { fontSize: 12, marginTop: 2 },
   logSets: { fontSize: 13, fontWeight: '500' },
+  logCal: { fontSize: 11, fontWeight: '600' },
 });

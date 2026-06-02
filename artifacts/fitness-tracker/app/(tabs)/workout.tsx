@@ -20,6 +20,7 @@ import { useAppContext, WorkoutLog, ExerciseLog, SetLog } from '@/context/AppCon
 import { useColors } from '@/hooks/useColors';
 import { Exercise, WorkoutDay, PROGRAM_INFO, getProgramExercisePool } from '@/constants/workouts';
 import { openExerciseVideo } from '@/constants/exerciseLinks';
+import { estimateCalories } from '@/constants/calories';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -527,7 +528,7 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, o
 export default function WorkoutScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, workoutPlan, workoutLogs, saveWorkoutLog, getCurrentWorkoutDayIndex, customExercises } = useAppContext();
+  const { profile, workoutPlan, workoutLogs, bodyEntries, saveWorkoutLog, getCurrentWorkoutDayIndex, customExercises } = useAppContext();
 
   const dayIndex = getCurrentWorkoutDayIndex();
   const todayWorkout: WorkoutDay | null = workoutPlan[dayIndex] ?? null;
@@ -626,12 +627,21 @@ export default function WorkoutScreen() {
   }, [todayWorkout, logId, today, dayIndex, exerciseLogs, saveWorkoutLog]);
 
   const handleComplete = useCallback(async () => {
-    if (!todayWorkout) return;
+    if (!todayWorkout || !profile) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const log: WorkoutLog = { id: logId, date: today, workoutDayIndex: dayIndex, exerciseLogs, completed: true };
+    const latestWeight = [...bodyEntries]
+      .filter(e => e.weight != null)
+      .sort((a, b) => b.date.localeCompare(a.date))[0]?.weight;
+    const calories = estimateCalories(
+      exerciseLogs,
+      profile.programType,
+      profile.workoutDuration,
+      latestWeight ?? 154,
+    );
+    const log: WorkoutLog = { id: logId, date: today, workoutDayIndex: dayIndex, exerciseLogs, completed: true, caloriesBurned: calories };
     await saveWorkoutLog(log);
-    Alert.alert('Workout Complete!', 'Great work. Rest up and come back tomorrow.');
-  }, [todayWorkout, logId, today, dayIndex, exerciseLogs, saveWorkoutLog]);
+    Alert.alert('Workout Complete! 🔥', `Great work! You burned approximately ${calories} calories.`);
+  }, [todayWorkout, profile, bodyEntries, logId, today, dayIndex, exerciseLogs, saveWorkoutLog]);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -682,8 +692,16 @@ export default function WorkoutScreen() {
 
         {isWorkoutDone && (
           <View style={[styles.doneBanner, { backgroundColor: accentColor + '20', borderColor: accentColor }]}>
-            <Ionicons name="checkmark-circle" size={18} color={accentColor} />
-            <Text style={[styles.doneBannerText, { color: accentColor }]}>Workout completed — great work!</Text>
+            <View style={styles.doneBannerLeft}>
+              <Ionicons name="checkmark-circle" size={18} color={accentColor} />
+              <Text style={[styles.doneBannerText, { color: accentColor }]}>Workout completed — great work!</Text>
+            </View>
+            {existingLog?.caloriesBurned != null && (
+              <View style={[styles.calorieBadge, { backgroundColor: accentColor }]}>
+                <Ionicons name="flame" size={12} color="#fff" />
+                <Text style={styles.calorieBadgeText}>{existingLog.caloriesBurned} cal</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -745,8 +763,11 @@ const styles = StyleSheet.create({
   progressBadgeSub: { fontSize: 11, fontWeight: '500' },
   headerTimerBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
   headerTimerText: { fontSize: 12, fontWeight: '600' },
-  doneBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
-  doneBannerText: { fontSize: 14, fontWeight: '600' },
+  doneBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
+  doneBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  doneBannerText: { fontSize: 14, fontWeight: '600', flex: 1 },
+  calorieBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  calorieBadgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   exercises: { gap: 14 },
   exCard: { borderRadius: 16, borderWidth: 1, padding: 16 },
   exHeader: { marginBottom: 14 },

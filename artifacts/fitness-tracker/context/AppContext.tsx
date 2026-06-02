@@ -32,6 +32,7 @@ export interface WorkoutLog {
   workoutDayIndex: number;
   exerciseLogs: ExerciseLog[];
   completed: boolean;
+  caloriesBurned?: number;
 }
 
 export interface BodyEntry {
