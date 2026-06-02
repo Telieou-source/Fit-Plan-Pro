@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,12 +14,27 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext, WorkoutLog, ExerciseLog, SetLog } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
-import { Exercise, WorkoutDay } from '@/constants/workouts';
-import { PROGRAM_INFO } from '@/constants/workouts';
+import { Exercise, WorkoutDay, PROGRAM_INFO } from '@/constants/workouts';
 import { openExerciseVideo } from '@/constants/exerciseLinks';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const TIMER_PRESETS = [
+  { label: '20s', secs: 20 },
+  { label: '30s', secs: 30 },
+  { label: '45s', secs: 45 },
+  { label: '1 min', secs: 60 },
+  { label: '90s', secs: 90 },
+  { label: '2 min', secs: 120 },
+  { label: '3 min', secs: 180 },
+  { label: '5 min', secs: 300 },
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -44,6 +60,204 @@ function initExerciseLogs(workout: WorkoutDay): ExerciseLog[] {
     sets: initSets(ex, ex.targetSets),
   }));
 }
+
+/** Parse "45 sec", "2 min", "60s", "90" → seconds */
+function parseDurationToSecs(dur: string | undefined): number {
+  if (!dur) return 60;
+  const minMatch = dur.match(/(\d+)\s*(min|m\b)/i);
+  if (minMatch) return parseInt(minMatch[1]) * 60;
+  const secMatch = dur.match(/(\d+)/);
+  if (secMatch) return parseInt(secMatch[1]);
+  return 60;
+}
+
+function formatTime(secs: number) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m > 0) return `${m}:${String(s).padStart(2, '0')}`;
+  return `${s}`;
+}
+
+// ─── Timer Modal ─────────────────────────────────────────────────────────────
+
+const RING_R = 90;
+const RING_SW = 10;
+const RING_C = 2 * Math.PI * RING_R;
+
+interface TimerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  initialSecs: number;
+  accentColor: string;
+}
+
+function TimerModal({ visible, onClose, initialSecs, accentColor }: TimerModalProps) {
+  const colors = useColors();
+  const [target, setTarget] = useState(initialSecs);
+  const [remaining, setRemaining] = useState(initialSecs);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+  const ivRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setTarget(initialSecs);
+    setRemaining(initialSecs);
+    setRunning(false);
+    setDone(false);
+  }, [initialSecs, visible]);
+
+  useEffect(() => {
+    if (running) {
+      ivRef.current = setInterval(() => {
+        setRemaining(r => {
+          if (r <= 1) {
+            clearInterval(ivRef.current!);
+            setRunning(false);
+            setDone(true);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            return 0;
+          }
+          return r - 1;
+        });
+      }, 1000);
+    } else {
+      if (ivRef.current) clearInterval(ivRef.current);
+    }
+    return () => { if (ivRef.current) clearInterval(ivRef.current); };
+  }, [running]);
+
+  const selectPreset = (secs: number) => {
+    if (ivRef.current) clearInterval(ivRef.current);
+    setTarget(secs);
+    setRemaining(secs);
+    setRunning(false);
+    setDone(false);
+    Haptics.selectionAsync();
+  };
+
+  const toggle = () => {
+    if (done) {
+      setRemaining(target);
+      setDone(false);
+      setRunning(true);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setRunning(r => !r);
+    }
+  };
+
+  const reset = () => {
+    if (ivRef.current) clearInterval(ivRef.current);
+    setRunning(false);
+    setRemaining(target);
+    setDone(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleClose = () => {
+    if (ivRef.current) clearInterval(ivRef.current);
+    setRunning(false);
+    onClose();
+  };
+
+  const progress = target > 0 ? remaining / target : 1;
+  const dashOffset = RING_C * (1 - progress);
+  const ringColor = done ? '#30D158' : accentColor;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <View style={ts.overlay}>
+        <View style={[ts.sheet, { backgroundColor: colors.background }]}>
+          <View style={[ts.handle, { backgroundColor: colors.border }]} />
+
+          {/* Ring */}
+          <View style={ts.ringWrap}>
+            <Svg width={220} height={220} viewBox="0 0 220 220">
+              <Circle
+                cx="110" cy="110" r={RING_R}
+                stroke={colors.border}
+                strokeWidth={RING_SW}
+                fill="none"
+              />
+              <Circle
+                cx="110" cy="110" r={RING_R}
+                stroke={ringColor}
+                strokeWidth={RING_SW}
+                fill="none"
+                strokeDasharray={`${RING_C}`}
+                strokeDashoffset={`${dashOffset}`}
+                strokeLinecap="round"
+                transform="rotate(-90 110 110)"
+              />
+            </Svg>
+            <View style={ts.ringCenter}>
+              <Text style={[ts.timeText, { color: done ? '#30D158' : colors.foreground }]}>
+                {formatTime(remaining)}
+              </Text>
+              {done && <Text style={[ts.subText, { color: '#30D158' }]}>Done!</Text>}
+              {!done && !running && remaining < target && (
+                <Text style={[ts.subText, { color: colors.mutedForeground }]}>Paused</Text>
+              )}
+              {!done && !running && remaining === target && (
+                <Text style={[ts.subText, { color: colors.mutedForeground }]}>Tap ▶ to start</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Preset pills */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ts.presets}>
+            {TIMER_PRESETS.map(p => {
+              const sel = p.secs === target;
+              return (
+                <Pressable
+                  key={p.secs}
+                  onPress={() => selectPreset(p.secs)}
+                  style={({ pressed }) => [
+                    ts.preset,
+                    { backgroundColor: sel ? accentColor : colors.card, borderColor: sel ? accentColor : colors.border, opacity: pressed ? 0.75 : 1 },
+                  ]}
+                >
+                  <Text style={[ts.presetText, { color: sel ? '#fff' : colors.foreground }]}>{p.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Controls */}
+          <View style={ts.controls}>
+            <TouchableOpacity onPress={reset} style={[ts.sideBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="refresh-outline" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={toggle} style={[ts.playBtn, { backgroundColor: done ? '#30D158' : accentColor }]}>
+              <Ionicons name={running ? 'pause' : done ? 'refresh' : 'play'} size={34} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClose} style={[ts.sideBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="close" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const ts = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: 40, paddingHorizontal: 24, alignItems: 'center' },
+  handle: { width: 40, height: 4, borderRadius: 2, marginVertical: 12 },
+  ringWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center', marginVertical: 8 },
+  ringCenter: { position: 'absolute', alignItems: 'center' },
+  timeText: { fontSize: 54, fontWeight: '800', letterSpacing: -2 },
+  subText: { fontSize: 14, fontWeight: '600', marginTop: 2 },
+  presets: { flexDirection: 'row', gap: 8, paddingHorizontal: 4, paddingVertical: 8 },
+  preset: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
+  presetText: { fontSize: 14, fontWeight: '700' },
+  controls: { flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 20 },
+  sideBtn: { width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  playBtn: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+});
+
+// ─── Set Row ─────────────────────────────────────────────────────────────────
 
 interface SetRowProps {
   setIndex: number;
@@ -106,21 +320,27 @@ function SetRow({ setIndex, set, exercise, onChange, accentColor }: SetRowProps)
         </>
       )}
 
-      <TouchableOpacity onPress={toggleComplete} style={[styles.checkBtn, { backgroundColor: set.completed ? accentColor : colors.card, borderColor: set.completed ? accentColor : colors.border }]}>
+      <TouchableOpacity
+        onPress={toggleComplete}
+        style={[styles.checkBtn, { backgroundColor: set.completed ? accentColor : colors.card, borderColor: set.completed ? accentColor : colors.border }]}
+      >
         {set.completed && <Ionicons name="checkmark" size={16} color="#fff" />}
       </TouchableOpacity>
     </View>
   );
 }
 
+// ─── Exercise Card ────────────────────────────────────────────────────────────
+
 interface ExerciseCardProps {
   exercise: Exercise;
   log: ExerciseLog;
   onLogChange: (updated: ExerciseLog) => void;
   accentColor: string;
+  onTimerPress: (secs: number) => void;
 }
 
-function ExerciseCard({ exercise, log, onLogChange, accentColor }: ExerciseCardProps) {
+function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress }: ExerciseCardProps) {
   const colors = useColors();
   const completedSets = log.sets.filter(s => s.completed).length;
 
@@ -151,13 +371,22 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor }: ExerciseCardP
             {exercise.targetReps ? ` · ${exercise.targetReps} reps` : ''}
             {exercise.targetDuration ? ` · ${exercise.targetDuration}` : ''}
           </Text>
-          <TouchableOpacity
-            onPress={() => openExerciseVideo(exercise.name)}
-            style={[styles.howToBtn, { backgroundColor: accentColor + '15', borderColor: accentColor + '40' }]}
-          >
-            <Ionicons name="logo-youtube" size={13} color={accentColor} />
-            <Text style={[styles.howToBtnText, { color: accentColor }]}>How to</Text>
-          </TouchableOpacity>
+          <View style={styles.exActions}>
+            <TouchableOpacity
+              onPress={() => onTimerPress(parseDurationToSecs(exercise.targetDuration))}
+              style={[styles.actionBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+            >
+              <Ionicons name="timer-outline" size={13} color={colors.mutedForeground} />
+              <Text style={[styles.actionBtnText, { color: colors.mutedForeground }]}>Timer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => openExerciseVideo(exercise.name)}
+              style={[styles.actionBtn, { backgroundColor: accentColor + '15', borderColor: accentColor + '40' }]}
+            >
+              <Ionicons name="logo-youtube" size={13} color={accentColor} />
+              <Text style={[styles.actionBtnText, { color: accentColor }]}>How to</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -189,6 +418,8 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor }: ExerciseCardP
   );
 }
 
+// ─── Workout Screen ───────────────────────────────────────────────────────────
+
 export default function WorkoutScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -207,6 +438,8 @@ export default function WorkoutScreen() {
     existingLog ? existingLog.exerciseLogs : (todayWorkout ? initExerciseLogs(todayWorkout) : [])
   );
   const [logId] = useState(() => existingLog?.id ?? makeId());
+  const [timerVisible, setTimerVisible] = useState(false);
+  const [timerInitSecs, setTimerInitSecs] = useState(60);
 
   useEffect(() => {
     if (!existingLog && todayWorkout) {
@@ -220,6 +453,12 @@ export default function WorkoutScreen() {
   const completedCount = exerciseLogs.reduce((acc, el) => acc + el.sets.filter(s => s.completed).length, 0);
   const totalSets = exerciseLogs.reduce((acc, el) => acc + el.sets.length, 0);
   const isWorkoutDone = existingLog?.completed ?? false;
+
+  const openTimer = useCallback((secs: number) => {
+    Haptics.selectionAsync();
+    setTimerInitSecs(secs);
+    setTimerVisible(true);
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!todayWorkout) return;
@@ -265,13 +504,22 @@ export default function WorkoutScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.workoutHeader}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.dayLabel, { color: accentColor }]}>{todayWorkout.name} — {todayWorkout.focus}</Text>
             <Text style={[styles.workoutTitle, { color: colors.foreground }]}>{todayWorkout.description}</Text>
           </View>
-          <View style={[styles.progressBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.progressBadgeText, { color: accentColor }]}>{completedCount}/{totalSets}</Text>
-            <Text style={[styles.progressBadgeSub, { color: colors.mutedForeground }]}>sets</Text>
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View style={[styles.progressBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.progressBadgeText, { color: accentColor }]}>{completedCount}/{totalSets}</Text>
+              <Text style={[styles.progressBadgeSub, { color: colors.mutedForeground }]}>sets</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => openTimer(60)}
+              style={[styles.headerTimerBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Ionicons name="timer-outline" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.headerTimerText, { color: colors.mutedForeground }]}>Timer</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -293,6 +541,7 @@ export default function WorkoutScreen() {
                 setExerciseLogs(newLogs);
               }}
               accentColor={accentColor}
+              onTimerPress={openTimer}
             />
           ))}
         </View>
@@ -310,33 +559,45 @@ export default function WorkoutScreen() {
           </View>
         )}
       </ScrollView>
+
+      <TimerModal
+        visible={timerVisible}
+        onClose={() => setTimerVisible(false)}
+        initialSecs={timerInitSecs}
+        accentColor={accentColor}
+      />
     </KeyboardAvoidingView>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontSize: 16 },
   scroll: { paddingHorizontal: 16 },
-  workoutHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  workoutHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12 },
   dayLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
-  workoutTitle: { fontSize: 20, fontWeight: '700', flex: 1, maxWidth: '80%' },
+  workoutTitle: { fontSize: 20, fontWeight: '700' },
   progressBadge: { alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   progressBadgeText: { fontSize: 20, fontWeight: '700' },
   progressBadgeSub: { fontSize: 11, fontWeight: '500' },
+  headerTimerBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+  headerTimerText: { fontSize: 12, fontWeight: '600' },
   doneBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
   doneBannerText: { fontSize: 14, fontWeight: '600' },
   exercises: { gap: 14 },
   exCard: { borderRadius: 16, borderWidth: 1, padding: 16 },
   exHeader: { marginBottom: 14 },
-  exTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
+  exTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 },
   exSubRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  howToBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
-  howToBtnText: { fontSize: 12, fontWeight: '600' },
+  exActions: { flexDirection: 'row', gap: 6 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  actionBtnText: { fontSize: 12, fontWeight: '600' },
   exName: { fontSize: 17, fontWeight: '700' },
   muscleTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   muscleTagText: { fontSize: 11, fontWeight: '600' },
-  exTarget: { fontSize: 13 },
+  exTarget: { fontSize: 13, flex: 1 },
   setHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 2 },
   setHeaderLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },

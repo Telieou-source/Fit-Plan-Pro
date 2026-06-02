@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { EXERCISE_LIBRARY, LibraryExercise, libraryExToExercise, Exercise, PROGRAM_INFO } from '@/constants/workouts';
+import { openExerciseVideo } from '@/constants/exerciseLinks';
 
 function makeId() {
   return 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -202,6 +203,19 @@ export default function EditWorkoutScreen() {
             </TouchableOpacity>
           </View>
 
+          {customName.trim().length > 0 && (
+            <TouchableOpacity
+              onPress={() => openExerciseVideo(customName.trim())}
+              style={[styles.ytPreviewRow, { borderColor: colors.border }]}
+            >
+              <Ionicons name="logo-youtube" size={16} color="#FF3B30" />
+              <Text style={[styles.ytPreviewText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                Preview "{customName.trim()}" on YouTube
+              </Text>
+              <Ionicons name="open-outline" size={14} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
+
           {/* Search */}
           <View style={[styles.searchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
@@ -224,21 +238,23 @@ export default function EditWorkoutScreen() {
             keyExtractor={item => item.id}
             contentContainerStyle={{ paddingBottom: 40 }}
             renderItem={({ item }) => (
-              <Pressable
-                onPress={() => { addFromLibrary(item); setShowPicker(false); }}
-                style={({ pressed }) => [
-                  styles.libRow,
-                  { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1, backgroundColor: colors.background },
-                ]}
-              >
-                <View style={styles.libInfo}>
-                  <Text style={[styles.libName, { color: colors.foreground }]}>{item.name}</Text>
-                  <Text style={[styles.libMeta, { color: colors.mutedForeground }]}>
-                    {item.muscleGroup} · {item.defaultSets} sets{item.defaultReps ? ` · ${item.defaultReps}` : ''}{item.defaultDuration ? ` · ${item.defaultDuration}` : ''}
-                  </Text>
-                </View>
-                <Ionicons name="add" size={22} color={accentColor} />
-              </Pressable>
+              <View style={[styles.libRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+                <Pressable
+                  onPress={() => { addFromLibrary(item); setShowPicker(false); }}
+                  style={({ pressed }) => [styles.libPressable, { opacity: pressed ? 0.7 : 1 }]}
+                >
+                  <View style={styles.libInfo}>
+                    <Text style={[styles.libName, { color: colors.foreground }]}>{item.name}</Text>
+                    <Text style={[styles.libMeta, { color: colors.mutedForeground }]}>
+                      {item.muscleGroup} · {item.defaultSets} sets{item.defaultReps ? ` · ${item.defaultReps}` : ''}{item.defaultDuration ? ` · ${item.defaultDuration}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="add" size={22} color={accentColor} />
+                </Pressable>
+                <TouchableOpacity onPress={() => openExerciseVideo(item.name)} style={styles.libYtBtn}>
+                  <Ionicons name="logo-youtube" size={18} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
             )}
           />
         </View>
@@ -277,8 +293,12 @@ const styles = StyleSheet.create({
   customAddBtnText: { fontSize: 14, fontWeight: '700' },
   searchRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginBottom: 4, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, height: 42, gap: 8 },
   searchInput: { flex: 1, fontSize: 15, height: 42 },
-  libRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
+  libRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1 },
+  libPressable: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingLeft: 16, paddingRight: 8 },
   libInfo: { flex: 1 },
   libName: { fontSize: 15, fontWeight: '600' },
   libMeta: { fontSize: 12, marginTop: 2 },
+  libYtBtn: { padding: 12 },
+  ytPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12, marginBottom: 8, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  ytPreviewText: { flex: 1, fontSize: 13 },
 });
