@@ -533,44 +533,102 @@ const CF_FORMATS = [
   'Death By…',
 ];
 
+// ─── Budget helper ───────────────────────────────────────────────────────────
+
+/**
+ * Exercises per session scaled by duration and training frequency.
+ * More time → more exercises. More training days → smaller sessions
+ * (volume is spread across sessions; reference point is 4 days/week).
+ */
+function sessionBudget(duration: number, daysPerWeek: number, minsPerExercise: number): number {
+  const raw = Math.max(2, Math.floor(duration / minsPerExercise));
+  const dayFactor = Math.max(0.5, Math.min(2.0, 4 / Math.max(1, daysPerWeek)));
+  return Math.max(2, Math.min(12, Math.round(raw * dayFactor)));
+}
+
 // ─── Plan generators ─────────────────────────────────────────────────────────
 
-function muscleBuildingPlan(days: number, skill: SkillLevel, week: number): WorkoutDay[] {
+function muscleBuildingPlan(days: number, skill: SkillLevel, week: number, duration: number): WorkoutDay[] {
   const core = MB_CORE[skill];
-  const seed = week * 7; // different offset each week
+  const seed = week * 7;
+  const budget = sessionBudget(duration, days, 10); // ~10 min per exercise incl. rest
 
-  // Each day picks from rotating accessory pools
   function pushDay(id: string, name: string, label: string): WorkoutDay {
-    const chest = pick(MB_CHEST_ACC[skill], seed + 1, 2);
-    const tri = pick(MB_ARM_ACC[skill], seed + 3, 2);
-    const sh = pick(MB_SHOULDER_ACC[skill], seed, 1);
-    const co = pick(MB_CORE_EX[skill], seed + 2, 1);
-    return { id, name, focus: label, description: 'Chest, shoulders and triceps — progressive overload focus.', exercises: [core.push, ...chest, sh[0], ...tri, co[0]] };
+    const acc = Math.max(0, budget - 1);
+    const ch = Math.max(1, Math.round(acc * 0.40));
+    const tr = Math.max(0, Math.round(acc * 0.30));
+    const sh = Math.max(0, Math.round(acc * 0.20));
+    const co = Math.max(0, acc - ch - tr - sh);
+    return {
+      id, name, focus: label,
+      description: 'Chest, shoulders and triceps — progressive overload focus.',
+      exercises: [
+        core.push,
+        ...pick(MB_CHEST_ACC[skill], seed + 1, ch),
+        ...(sh > 0 ? pick(MB_SHOULDER_ACC[skill], seed, sh) : []),
+        ...(tr > 0 ? pick(MB_ARM_ACC[skill], seed + 3, tr) : []),
+        ...(co > 0 ? pick(MB_CORE_EX[skill], seed + 2, co) : []),
+      ],
+    };
   }
   function pullDay(id: string, name: string, label: string): WorkoutDay {
-    const back = pick(MB_BACK_ACC[skill], seed + 2, 3);
-    const bi = pick(MB_ARM_ACC[skill], seed + 4, 2);
-    return { id, name, focus: label, description: 'Back and biceps — width and thickness.', exercises: [core.pull, core.hinge, ...back, ...bi] };
+    const acc = Math.max(0, budget - 2);
+    const bk = Math.max(0, Math.round(acc * 0.60));
+    const bi = Math.max(0, acc - bk);
+    return {
+      id, name, focus: label,
+      description: 'Back and biceps — width and thickness.',
+      exercises: [
+        core.pull, core.hinge,
+        ...pick(MB_BACK_ACC[skill], seed + 2, bk),
+        ...(bi > 0 ? pick(MB_ARM_ACC[skill], seed + 4, bi) : []),
+      ],
+    };
   }
   function legDay(id: string, name: string, label: string): WorkoutDay {
-    const legs = pick(MB_LEG_ACC[skill], seed + 3, 4);
-    return { id, name, focus: label, description: 'Quads, hamstrings, glutes and calves.', exercises: [core.squat, ...legs] };
+    return {
+      id, name, focus: label,
+      description: 'Quads, hamstrings, glutes and calves.',
+      exercises: [core.squat, ...pick(MB_LEG_ACC[skill], seed + 3, Math.max(0, budget - 1))],
+    };
   }
   function upperDay(id: string, name: string, label: string): WorkoutDay {
-    const chest = pick(MB_CHEST_ACC[skill], seed, 2);
-    const back = pick(MB_BACK_ACC[skill], seed + 1, 2);
-    const sh = pick(MB_SHOULDER_ACC[skill], seed + 2, 1);
-    const ar = pick(MB_ARM_ACC[skill], seed, 2);
-    return { id, name, focus: label, description: 'Full upper body stimulus.', exercises: [core.push, core.pull, ...chest, ...back, sh[0], ...ar] };
+    const acc = Math.max(0, budget - 2);
+    const ch = Math.max(0, Math.round(acc * 0.25));
+    const bk = Math.max(0, Math.round(acc * 0.25));
+    const sh = Math.max(0, Math.round(acc * 0.20));
+    const ar = Math.max(0, acc - ch - bk - sh);
+    return {
+      id, name, focus: label,
+      description: 'Full upper body stimulus.',
+      exercises: [
+        core.push, core.pull,
+        ...pick(MB_CHEST_ACC[skill], seed, ch),
+        ...pick(MB_BACK_ACC[skill], seed + 1, bk),
+        ...(sh > 0 ? pick(MB_SHOULDER_ACC[skill], seed + 2, sh) : []),
+        ...(ar > 0 ? pick(MB_ARM_ACC[skill], seed, ar) : []),
+      ],
+    };
   }
   function fullDay(id: string, name: string, label: string): WorkoutDay {
-    const co = pick(MB_CORE_EX[skill], seed, 2);
-    return { id, name, focus: label, description: 'Light full-body active session.', exercises: [core.squat, core.push, core.pull, ...co] };
+    const acc = Math.max(0, budget - 3);
+    return {
+      id, name, focus: label,
+      description: 'Light full-body active session.',
+      exercises: [core.squat, core.push, core.pull, ...pick(MB_CORE_EX[skill], seed, acc)],
+    };
   }
   function shDay(id: string, name: string, label: string): WorkoutDay {
-    const sh = pick(MB_SHOULDER_ACC[skill], seed, 4);
-    const co = pick(MB_CORE_EX[skill], seed + 1, 1);
-    return { id, name, focus: label, description: 'All three delt heads and trap work.', exercises: [...sh, co[0]] };
+    const sh = Math.max(1, Math.round(budget * 0.80));
+    const co = Math.max(0, budget - sh);
+    return {
+      id, name, focus: label,
+      description: 'All three delt heads and trap work.',
+      exercises: [
+        ...pick(MB_SHOULDER_ACC[skill], seed, sh),
+        ...(co > 0 ? pick(MB_CORE_EX[skill], seed + 1, co) : []),
+      ],
+    };
   }
 
   if (days === 1) return [fullDay('mb1', 'Day 1', 'Full Body')];
@@ -581,7 +639,7 @@ function muscleBuildingPlan(days: number, skill: SkillLevel, week: number): Work
     { ...pushDay('5_c', 'Day 1', 'Chest'), focus: 'Chest' },
     { ...pullDay('5_b', 'Day 2', 'Back'), focus: 'Back' },
     shDay('5_s', 'Day 3', 'Shoulders'),
-    { ...pullDay('5_a', 'Day 4', 'Arms'), focus: 'Arms', description: 'Biceps and triceps specialization.', exercises: pick(MB_ARM_ACC[skill], seed, 5) },
+    { ...pullDay('5_a', 'Day 4', 'Arms'), focus: 'Arms', description: 'Biceps and triceps specialization.', exercises: pick(MB_ARM_ACC[skill], seed, Math.max(2, budget)) },
     legDay('5_l', 'Day 5', 'Legs'),
   ];
   if (days >= 6) {
@@ -599,77 +657,93 @@ function muscleBuildingPlan(days: number, skill: SkillLevel, week: number): Work
   return [];
 }
 
-function crossfitPlan(days: number, skill: SkillLevel, week: number): WorkoutDay[] {
+function crossfitPlan(days: number, skill: SkillLevel, week: number, duration: number): WorkoutDay[] {
   const seed = week * 7;
   const fmt = (offset: number) => CF_FORMATS[(seed + offset) % CF_FORMATS.length];
+  const budget = sessionBudget(duration, days, 12); // ~12 min per piece
 
   function strengthMetcon(id: string, name: string): WorkoutDay {
-    const barbell = pick(CF_BARBELL[skill], seed, 2);
-    const gym = pick(CF_GYMNASTICS[skill], seed + 1, 2);
-    const cond = pick(CF_CONDITIONING[skill], seed + 2, 2);
+    const bb   = Math.max(1, Math.round(budget * 0.34));
+    const gym  = Math.max(0, Math.round(budget * 0.28));
+    const cond = Math.max(0, budget - bb - gym);
     return {
       id, name, focus: 'Strength + Conditioning',
       description: `Heavy barbell work, then ${fmt(0)} metcon.`,
       wodFormat: fmt(0),
-      exercises: [...barbell, ...gym, ...cond],
+      exercises: [
+        ...pick(CF_BARBELL[skill], seed, bb),
+        ...(gym > 0 ? pick(CF_GYMNASTICS[skill], seed + 1, gym) : []),
+        ...(cond > 0 ? pick(CF_CONDITIONING[skill], seed + 2, cond) : []),
+      ],
     };
   }
   function olympicLifting(id: string, name: string): WorkoutDay {
-    const bb = pick(CF_BARBELL[skill], seed + 3, 3);
-    const cond = pick(CF_CONDITIONING[skill], seed + 4, 2);
+    const bb   = Math.max(1, Math.round(budget * 0.60));
+    const cond = Math.max(0, budget - bb);
     return {
       id, name, focus: 'Olympic Lifting',
       description: `Snatch/clean complex, then ${fmt(1)} conditioning.`,
       wodFormat: fmt(1),
-      exercises: [...bb, ...cond],
+      exercises: [
+        ...pick(CF_BARBELL[skill], seed + 3, bb),
+        ...(cond > 0 ? pick(CF_CONDITIONING[skill], seed + 4, cond) : []),
+      ],
     };
   }
   function gymnasticsFocus(id: string, name: string): WorkoutDay {
-    const gym = pick(CF_GYMNASTICS[skill], seed + 2, 4);
-    const cond = pick(CF_CONDITIONING[skill], seed, 1);
+    const gym  = Math.max(1, Math.round(budget * 0.75));
+    const cond = Math.max(0, budget - gym);
     return {
       id, name, focus: 'Gymnastics + Cardio',
       description: `Bodyweight skill work, then ${fmt(2)} cardio finisher.`,
       wodFormat: fmt(2),
-      exercises: [...gym, cond[0]],
+      exercises: [
+        ...pick(CF_GYMNASTICS[skill], seed + 2, gym),
+        ...(cond > 0 ? pick(CF_CONDITIONING[skill], seed, cond) : []),
+      ],
     };
   }
   function amrapWod(id: string, name: string): WorkoutDay {
-    const metcon = pick(CF_METCON_OBJ[skill], seed + 5, 5);
     return {
       id, name, focus: 'AMRAP WOD',
       description: `${fmt(3)} — push your limit every round.`,
       wodFormat: fmt(3),
-      exercises: metcon,
+      exercises: pick(CF_METCON_OBJ[skill], seed + 5, Math.max(2, budget)),
     };
   }
   function barbellCycling(id: string, name: string): WorkoutDay {
-    const bb = pick(CF_BARBELL[skill], seed + 6, 2);
-    const gym = pick(CF_GYMNASTICS[skill], seed + 3, 2);
-    const met = pick(CF_METCON_OBJ[skill], seed, 2);
+    const bb  = Math.max(1, Math.round(budget * 0.40));
+    const gym = Math.max(0, Math.round(budget * 0.30));
+    const met = Math.max(0, budget - bb - gym);
     return {
       id, name, focus: 'Barbell Cycling',
       description: `High-rep barbell conditioning, ${fmt(4)} format.`,
       wodFormat: fmt(4),
-      exercises: [...bb, ...gym, ...met],
+      exercises: [
+        ...pick(CF_BARBELL[skill], seed + 6, bb),
+        ...(gym > 0 ? pick(CF_GYMNASTICS[skill], seed + 3, gym) : []),
+        ...(met > 0 ? pick(CF_METCON_OBJ[skill], seed, met) : []),
+      ],
     };
   }
   function heroWod(id: string, name: string): WorkoutDay {
-    const full = pick(CF_METCON_OBJ[skill], seed + 2, 4);
-    const cond = pick(CF_CONDITIONING[skill], seed + 6, 2);
+    const full = Math.max(2, Math.round(budget * 0.65));
+    const cond = Math.max(0, budget - full);
     return {
       id, name, focus: 'Hero WOD',
       description: `Long benchmark workout — ${fmt(5)}. Test your engine.`,
       wodFormat: fmt(5),
-      exercises: [...full, ...cond],
+      exercises: [
+        ...pick(CF_METCON_OBJ[skill], seed + 2, full),
+        ...(cond > 0 ? pick(CF_CONDITIONING[skill], seed + 6, cond) : []),
+      ],
     };
   }
   function activeRecovery(id: string, name: string): WorkoutDay {
-    const cond = pick(CF_CONDITIONING[skill], seed + 1, 2);
     return {
       id, name, focus: 'Active Recovery',
       description: 'Light movement to flush out and promote recovery.',
-      exercises: cond,
+      exercises: pick(CF_CONDITIONING[skill], seed + 1, Math.max(1, Math.min(2, Math.floor(budget * 0.4)))),
     };
   }
 
@@ -685,30 +759,28 @@ function crossfitPlan(days: number, skill: SkillLevel, week: number): WorkoutDay
   return all.slice(0, days);
 }
 
-function aerobicsPlan(days: number, skill: SkillLevel, week: number): WorkoutDay[] {
+function aerobicsPlan(days: number, skill: SkillLevel, week: number, duration: number): WorkoutDay[] {
   const seed = week * 7;
+  const budget = sessionBudget(duration, days, 20); // aerobics pieces run longer
 
   function steadyState(id: string, name: string): WorkoutDay {
     const [main] = pick(AER_STEADY[skill], seed + parseInt(id, 36) % 3, 1);
     return { id, name, focus: 'Steady-State Cardio', description: 'Maintain a comfortable, sustainable pace.', exercises: [main] };
   }
   function hiit(id: string, name: string): WorkoutDay {
-    const intervals = pick(AER_HIIT[skill], seed + 1, 3);
-    return { id, name, focus: 'HIIT Intervals', description: 'Spike your heart rate — max effort each interval.', exercises: intervals };
+    return { id, name, focus: 'HIIT Intervals', description: 'Spike your heart rate — max effort each interval.', exercises: pick(AER_HIIT[skill], seed + 1, Math.max(1, Math.min(6, budget))) };
   }
   function crossTraining(id: string, name: string): WorkoutDay {
-    const func = pick(AER_FUNCTIONAL[skill], seed + 2, 4);
-    return { id, name, focus: 'Cross-Training', description: 'Mix of functional movements to challenge the whole body.', exercises: func };
+    return { id, name, focus: 'Cross-Training', description: 'Mix of functional movements to challenge the whole body.', exercises: pick(AER_FUNCTIONAL[skill], seed + 2, Math.max(1, Math.min(7, budget))) };
   }
   function endurance(id: string, name: string): WorkoutDay {
     const [main] = pick(AER_STEADY[skill], seed + 3, 1);
-    const [extra] = pick(AER_HIIT[skill], seed + 2, 1);
-    return { id, name, focus: 'Endurance Build', description: 'Longer session to build aerobic base.', exercises: [main, extra] };
+    const extras = budget > 1 ? pick(AER_HIIT[skill], seed + 2, Math.min(3, budget - 1)) : [];
+    return { id, name, focus: 'Endurance Build', description: 'Longer session to build aerobic base.', exercises: [main, ...extras] };
   }
   function mixed(id: string, name: string): WorkoutDay {
     const [steady] = pick(AER_STEADY[skill], seed, 1);
-    const intervals = pick(AER_HIIT[skill], seed + 4, 2);
-    return { id, name, focus: 'Mixed Cardio', description: 'Combine modalities for a full aerobic challenge.', exercises: [steady, ...intervals] };
+    return { id, name, focus: 'Mixed Cardio', description: 'Combine modalities for a full aerobic challenge.', exercises: [steady, ...pick(AER_HIIT[skill], seed + 4, Math.max(1, Math.min(4, budget - 1)))] };
   }
   function recovery(id: string, name: string): WorkoutDay {
     const [easy] = pick(AER_STEADY[skill], 0, 1);
@@ -734,12 +806,13 @@ export function generateWorkoutPlan(
   daysPerWeek: number,
   skillLevel: SkillLevel = 'intermediate',
   weekNumber: number = 0,
+  workoutDuration: number = 60,
 ): WorkoutDay[] {
   const days = Math.max(1, Math.min(7, daysPerWeek));
   switch (programType) {
-    case 'muscle_building': return muscleBuildingPlan(days, skillLevel, weekNumber);
-    case 'crossfit':        return crossfitPlan(days, skillLevel, weekNumber);
-    case 'aerobics':        return aerobicsPlan(days, skillLevel, weekNumber);
+    case 'muscle_building': return muscleBuildingPlan(days, skillLevel, weekNumber, workoutDuration);
+    case 'crossfit':        return crossfitPlan(days, skillLevel, weekNumber, workoutDuration);
+    case 'aerobics':        return aerobicsPlan(days, skillLevel, weekNumber, workoutDuration);
   }
 }
 

@@ -18,7 +18,8 @@ import { useAppContext } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { PROGRAM_INFO, SKILL_INFO, DAYS_OF_WEEK, SkillLevel } from '@/constants/workouts';
 
-const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon first
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const DURATION_OPTIONS = [15, 30, 45, 60, 75, 90, 105, 120];
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
 
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [draftDays, setDraftDays] = useState<Set<number>>(new Set(profile?.preferredDays ?? []));
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -58,6 +60,13 @@ export default function SettingsScreen() {
     await setProfile({ ...profile, skillLevel: skill });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowSkillPicker(false);
+  };
+
+  const handleSaveDuration = async (mins: number) => {
+    if (!profile) return;
+    await setProfile({ ...profile, workoutDuration: mins });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowDurationPicker(false);
   };
 
   const handleChangeProgram = () => {
@@ -101,6 +110,7 @@ export default function SettingsScreen() {
   const scheduleSummary = profile?.preferredDays?.length
     ? profile.preferredDays.map(d => DAYS_OF_WEEK[d]).join(', ')
     : `${profile?.daysPerWeek ?? '?'} days/week`;
+  const currentDuration = profile?.workoutDuration ?? 60;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -159,6 +169,28 @@ export default function SettingsScreen() {
                 <View style={styles.actionLeft}>
                   <Ionicons name="trending-up-outline" size={20} color={colors.foreground} />
                   <Text style={[styles.actionLabel, { color: colors.foreground }]}>Change Fitness Level</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Session Duration */}
+            <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SESSION DURATION</Text>
+              <View style={styles.scheduleRow}>
+                <Ionicons name="time-outline" size={18} color={programInfo.color} />
+                <View style={styles.scheduleInfo}>
+                  <Text style={[styles.scheduleDays, { color: colors.foreground }]}>{currentDuration} minutes</Text>
+                  <Text style={[styles.scheduleSub, { color: colors.mutedForeground }]}>Exercises scale to fit your time</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowDurationPicker(true)}
+                style={[styles.actionRow, { borderTopColor: colors.border }]}
+              >
+                <View style={styles.actionLeft}>
+                  <Ionicons name="stopwatch-outline" size={20} color={colors.foreground} />
+                  <Text style={[styles.actionLabel, { color: colors.foreground }]}>Change Duration</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
@@ -284,6 +316,48 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
+      {/* Duration Picker Modal */}
+      <Modal visible={showDurationPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowDurationPicker(false)}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowDurationPicker(false)}>
+              <Text style={[styles.modalCancel, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>Session Duration</Text>
+            <View style={{ width: 50 }} />
+          </View>
+          <View style={styles.modalBody}>
+            <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
+              Exercises per session scale up or down to fill your time. Fewer training days also means more exercises per session.
+            </Text>
+            <View style={styles.durationGrid}>
+              {DURATION_OPTIONS.map(mins => {
+                const isCurrent = currentDuration === mins;
+                const color = programInfo?.color ?? colors.primary;
+                return (
+                  <Pressable
+                    key={mins}
+                    onPress={() => handleSaveDuration(mins)}
+                    style={({ pressed }) => [
+                      styles.durationBtn,
+                      { backgroundColor: isCurrent ? color : colors.card, borderColor: isCurrent ? color : colors.border, opacity: pressed ? 0.8 : 1 },
+                    ]}
+                  >
+                    <Text style={[styles.durationNum, { color: isCurrent ? '#fff' : colors.foreground }]}>{mins}</Text>
+                    <Text style={[styles.durationUnit, { color: isCurrent ? 'rgba(255,255,255,0.75)' : colors.mutedForeground }]}>min</Text>
+                    {isCurrent && (
+                      <View style={styles.durationCheck}>
+                        <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Schedule Picker Modal */}
       <Modal visible={showSchedulePicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowSchedulePicker(false)}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
@@ -370,4 +444,9 @@ const styles = StyleSheet.create({
   skillCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 14, borderWidth: 1.5 },
   skillLabel: { fontSize: 16, fontWeight: '700', marginBottom: 3 },
   skillSub: { fontSize: 12, lineHeight: 17 },
+  durationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  durationBtn: { width: '22%', minWidth: 72, paddingVertical: 18, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  durationNum: { fontSize: 20, fontWeight: '800' },
+  durationUnit: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  durationCheck: { position: 'absolute', top: 5, right: 5 },
 });

@@ -23,31 +23,29 @@ const PROGRAMS: { type: ProgramType; icon: string }[] = [
 ];
 
 const SKILLS: SkillLevel[] = ['novice', 'intermediate', 'advanced'];
-const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon first
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+export const DURATION_OPTIONS = [15, 30, 45, 60, 75, 90, 105, 120];
 
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { setProfile } = useAppContext();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedProgram, setSelectedProgram] = useState<ProgramType | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillLevel | null>(null);
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set([1, 3, 5]));
+  const [selectedDuration, setSelectedDuration] = useState<number>(60);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
-
   const accentColor = selectedProgram ? PROGRAM_INFO[selectedProgram].color : colors.primary;
 
   const toggleDay = (dow: number) => {
     Haptics.selectionAsync();
     setSelectedDays(prev => {
       const next = new Set(prev);
-      if (next.has(dow)) {
-        if (next.size > 1) next.delete(dow);
-      } else {
-        next.add(dow);
-      }
+      if (next.has(dow)) { if (next.size > 1) next.delete(dow); }
+      else next.add(dow);
       return next;
     });
   };
@@ -61,6 +59,7 @@ export default function OnboardingScreen() {
       skillLevel: selectedSkill,
       daysPerWeek: selectedDays.size,
       preferredDays: sortedDays,
+      workoutDuration: selectedDuration,
       startDate: new Date().toISOString(),
     });
     router.replace('/(tabs)');
@@ -74,7 +73,7 @@ export default function OnboardingScreen() {
       >
         {/* Step indicator */}
         <View style={styles.stepIndicator}>
-          {[1, 2, 3].map(s => (
+          {[1, 2, 3, 4].map(s => (
             <View
               key={s}
               style={[
@@ -89,12 +88,11 @@ export default function OnboardingScreen() {
         {/* ── Step 1: Program ── */}
         {step === 1 && (
           <>
-            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>STEP 1 OF 3</Text>
+            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>STEP 1 OF 4</Text>
             <Text style={[styles.heading, { color: colors.foreground }]}>Choose your{'\n'}program</Text>
             <Text style={[styles.subheading, { color: colors.mutedForeground }]}>
               We'll build your workout plan around this.
             </Text>
-
             <View style={styles.list}>
               {PROGRAMS.map(({ type, icon }) => {
                 const info = PROGRAM_INFO[type];
@@ -121,7 +119,6 @@ export default function OnboardingScreen() {
                 );
               })}
             </View>
-
             <TouchableOpacity
               onPress={() => { if (selectedProgram) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setStep(2); } }}
               disabled={!selectedProgram}
@@ -139,13 +136,11 @@ export default function OnboardingScreen() {
             <TouchableOpacity onPress={() => setStep(1)} style={styles.backBtn}>
               <Ionicons name="arrow-back" size={22} color={colors.foreground} />
             </TouchableOpacity>
-
-            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>STEP 2 OF 3</Text>
+            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>STEP 2 OF 4</Text>
             <Text style={[styles.heading, { color: colors.foreground }]}>Your fitness{'\n'}level</Text>
             <Text style={[styles.subheading, { color: colors.mutedForeground }]}>
-              This shapes exercise complexity, WOD formats, and how workouts rotate week to week.
+              Shapes exercise complexity, WOD formats, and weekly rotation.
             </Text>
-
             <View style={styles.list}>
               {SKILLS.map(skill => {
                 const info = SKILL_INFO[skill];
@@ -172,7 +167,6 @@ export default function OnboardingScreen() {
                 );
               })}
             </View>
-
             <TouchableOpacity
               onPress={() => { if (selectedSkill) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setStep(3); } }}
               disabled={!selectedSkill}
@@ -190,13 +184,11 @@ export default function OnboardingScreen() {
             <TouchableOpacity onPress={() => setStep(2)} style={styles.backBtn}>
               <Ionicons name="arrow-back" size={22} color={colors.foreground} />
             </TouchableOpacity>
-
-            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>STEP 3 OF 3</Text>
+            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>STEP 3 OF 4</Text>
             <Text style={[styles.heading, { color: colors.foreground }]}>Pick your{'\n'}training days</Text>
             <Text style={[styles.subheading, { color: colors.mutedForeground }]}>
-              Select which days of the week you'll train. Workouts rotate as you progress.
+              Select which days you'll train. Workouts rotate as you progress.
             </Text>
-
             <View style={styles.daysGrid}>
               {DAY_ORDER.map(dow => {
                 const isOn = selectedDays.has(dow);
@@ -214,12 +206,60 @@ export default function OnboardingScreen() {
                 );
               })}
             </View>
-
             <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Ionicons name="calendar-outline" size={18} color={accentColor} />
               <Text style={[styles.summaryText, { color: colors.mutedForeground }]}>
                 <Text style={{ color: accentColor, fontWeight: '700' }}>{selectedDays.size} days/week</Text>
                 {selectedProgram && selectedSkill ? ` · ${PROGRAM_INFO[selectedProgram].label} · ${SKILL_INFO[selectedSkill].label}` : ''}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setStep(4); }}
+              style={[styles.btn, { backgroundColor: accentColor }]}
+            >
+              <Text style={[styles.btnText, { color: '#fff' }]}>Continue</Text>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ── Step 4: Workout Duration ── */}
+        {step === 4 && (
+          <>
+            <TouchableOpacity onPress={() => setStep(3)} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+            </TouchableOpacity>
+            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>STEP 4 OF 4</Text>
+            <Text style={[styles.heading, { color: colors.foreground }]}>Session{'\n'}duration</Text>
+            <Text style={[styles.subheading, { color: colors.mutedForeground }]}>
+              How long is each workout? Exercises scale to fit your time — and training fewer days means more per session.
+            </Text>
+
+            <View style={styles.durationGrid}>
+              {DURATION_OPTIONS.map(mins => {
+                const isOn = selectedDuration === mins;
+                return (
+                  <Pressable
+                    key={mins}
+                    onPress={() => { Haptics.selectionAsync(); setSelectedDuration(mins); }}
+                    style={({ pressed }) => [
+                      styles.durationBtn,
+                      { backgroundColor: isOn ? accentColor : colors.card, borderColor: isOn ? accentColor : colors.border, opacity: pressed ? 0.8 : 1 },
+                    ]}
+                  >
+                    <Text style={[styles.durationNum, { color: isOn ? '#fff' : colors.foreground }]}>{mins}</Text>
+                    <Text style={[styles.durationUnit, { color: isOn ? 'rgba(255,255,255,0.75)' : colors.mutedForeground }]}>min</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="time-outline" size={18} color={accentColor} />
+              <Text style={[styles.summaryText, { color: colors.mutedForeground }]}>
+                <Text style={{ color: accentColor, fontWeight: '700' }}>{selectedDuration} min sessions</Text>
+                {` · ${selectedDays.size} days/week`}
+                {selectedProgram ? ` · ${PROGRAM_INFO[selectedProgram].label}` : ''}
               </Text>
             </View>
 
@@ -260,4 +300,8 @@ const styles = StyleSheet.create({
   dayText: { fontSize: 13, fontWeight: '700' },
   summaryCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 28 },
   summaryText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  durationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  durationBtn: { width: '22%', minWidth: 72, paddingVertical: 18, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  durationNum: { fontSize: 20, fontWeight: '800' },
+  durationUnit: { fontSize: 12, fontWeight: '600', marginTop: 2 },
 });

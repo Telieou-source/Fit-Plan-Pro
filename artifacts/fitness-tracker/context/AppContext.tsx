@@ -9,6 +9,7 @@ export interface UserProfile {
   skillLevel: SkillLevel;
   daysPerWeek: number;
   preferredDays: number[]; // 0=Sun, 1=Mon ... 6=Sat; sorted
+  workoutDuration: number; // minutes per session (15-120)
   startDate: string;
 }
 
@@ -93,6 +94,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const p: UserProfile = JSON.parse(profileRaw);
           if (!p.preferredDays) p.preferredDays = [];
           if (!p.skillLevel) p.skillLevel = 'intermediate'; // back-compat
+          if (!p.workoutDuration) p.workoutDuration = 60;  // back-compat
           setProfileState(p);
         }
         if (logsRaw) setWorkoutLogs(JSON.parse(logsRaw));
@@ -113,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Generated plan rotates by week number and skill level
   const workoutPlan = useMemo(() => {
     if (!profile) return [];
-    return generateWorkoutPlan(profile.programType, profile.daysPerWeek, profile.skillLevel, weekNumber);
+    return generateWorkoutPlan(profile.programType, profile.daysPerWeek, profile.skillLevel, weekNumber, profile.workoutDuration ?? 60);
   }, [profile, weekNumber]);
 
   const effectivePlan: WorkoutDay[] = customWorkoutPlan ?? workoutPlan;
