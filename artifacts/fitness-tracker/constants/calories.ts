@@ -6,11 +6,18 @@ const MET_BY_PROGRAM: Record<string, number> = {
   aerobics: 7.0,
 };
 
+const GENDER_MULTIPLIER: Record<string, number> = {
+  male: 1.0,
+  female: 0.9,
+  other: 0.95,
+};
+
 export function estimateCalories(
   exerciseLogs: ExerciseLog[],
   programType: string,
   workoutDurationMins: number,
   bodyWeightLbs = 154,
+  gender?: string,
 ): number {
   const totalSets = exerciseLogs.reduce((a, el) => a + el.sets.length, 0);
   const completedSets = exerciseLogs.reduce((a, el) => a + el.sets.filter(s => s.completed).length, 0);
@@ -18,5 +25,6 @@ export function estimateCalories(
   const effectiveMins = workoutDurationMins * completionRate;
   const weightKg = bodyWeightLbs / 2.205;
   const met = MET_BY_PROGRAM[programType] ?? 5.0;
-  return Math.round(met * weightKg * (effectiveMins / 60));
+  const genderMult = GENDER_MULTIPLIER[gender ?? ''] ?? 1.0;
+  return Math.round(met * weightKg * (effectiveMins / 60) * genderMult);
 }

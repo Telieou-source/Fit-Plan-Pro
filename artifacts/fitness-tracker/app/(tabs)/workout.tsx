@@ -651,6 +651,7 @@ export default function WorkoutScreen() {
       profile.programType,
       profile.workoutDuration,
       latestWeight ?? 154,
+      profile.gender,
     );
     const log: WorkoutLog = { id: logId, date: today, workoutDayIndex: dayIndex, exerciseLogs, completed: true, caloriesBurned: calories };
     await saveWorkoutLog(log);

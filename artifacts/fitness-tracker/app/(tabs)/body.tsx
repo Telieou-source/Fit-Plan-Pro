@@ -282,19 +282,21 @@ export default function BodyScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Height card — persists to profile */}
+        {/* Personal info card — height + gender, persists to profile */}
         <View style={[styles.heightCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.heightRow}>
+          <Text style={[styles.heightLabel, { color: colors.mutedForeground, marginBottom: 12 }]}>PERSONAL INFO</Text>
+
+          {/* Height row */}
+          <View style={[styles.heightRow, { marginBottom: 14 }]}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.heightLabel, { color: colors.mutedForeground }]}>HEIGHT</Text>
-              {!editingHeight && (
+              <Text style={[styles.infoSubLabel, { color: colors.mutedForeground }]}>Height</Text>
+              {!editingHeight ? (
                 <Text style={[styles.heightValue, { color: colors.foreground }]}>
                   {profile?.heightInches
                     ? `${Math.floor(profile.heightInches / 12)}'${profile.heightInches % 12}"`
                     : 'Not set'}
                 </Text>
-              )}
-              {editingHeight && (
+              ) : (
                 <View style={styles.heightInputRow}>
                   <View style={[styles.heightInputWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <TextInput
@@ -343,6 +345,37 @@ export default function BodyScreen() {
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+
+          {/* Gender row */}
+          <View style={[styles.heightRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.infoSubLabel, { color: colors.mutedForeground }]}>Gender</Text>
+            </View>
+            <View style={styles.genderBtnRow}>
+              {(['male', 'female', 'other'] as const).map(g => {
+                const selected = profile?.gender === g;
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    onPress={async () => {
+                      if (!profile) return;
+                      Haptics.selectionAsync();
+                      await setProfile({ ...profile, gender: g });
+                    }}
+                    style={[
+                      styles.genderBtn,
+                      { borderColor: selected ? accentColor : colors.border },
+                      selected && { backgroundColor: accentColor },
+                    ]}
+                  >
+                    <Text style={[styles.genderBtnText, { color: selected ? '#fff' : colors.mutedForeground }]}>
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         </View>
 
@@ -520,6 +553,10 @@ const styles = StyleSheet.create({
   heightCancelBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
   heightSaveBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10 },
   heightSaveBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  infoSubLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  genderBtnRow: { flexDirection: 'row', gap: 6 },
+  genderBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+  genderBtnText: { fontSize: 13, fontWeight: '600' },
   trendCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 14 },
   trendTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
   trendItem: { paddingVertical: 14 },
