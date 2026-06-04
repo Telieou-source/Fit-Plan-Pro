@@ -212,7 +212,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.mutedForeground }]}>{greet()}</Text>
-          <Text style={[styles.appName, { color: colors.foreground }]}>FitTrack</Text>
+          <Text style={[styles.appName, { color: colors.foreground }]}>RecordFit</Text>
         </View>
         <TouchableOpacity
           onPress={() => router.push("/settings" as any)}
