@@ -14,7 +14,8 @@
       "backgroundColor": "#0D0D0F"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.will-lawson.fittrack"
     },
     "android": {},
     "web": {
