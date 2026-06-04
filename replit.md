@@ -1,45 +1,61 @@
-# [Project name]
+# RecordFit — Personal Fitness Tracker
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A full-featured iOS fitness tracker app built with Expo / React Native. Track workouts, log body measurements, monitor strength progression, and view detailed progress reports — all stored privately on-device with no account required.
 
-## Run & Operate
+## Features
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- **Program Selection** — Choose from Muscle Building, CrossFit, or Aerobics programs
+- **Auto-generated Workout Plans** — Customizable by days per week and session duration
+- **Exercise Logging** — Sets, reps, and weight tracking with last-used weight auto-fill
+- **Bodyweight Exercise Support** — Reps-only tracking for push-ups, pull-ups, etc.
+- **Calorie Estimation** — MET-based estimates using body weight, duration, program type, and gender
+- **Progress Tracking** — Weekly charts, streak tracking, total calories, avg sessions/week
+- **Strength Progression** — Per-exercise bar charts and personal records
+- **Body Measurements** — Weight, BMI, chest, waist, hips, arms, thighs with SVG trend charts
+- **Full Progress Report** — All stats consolidated in one scrollable report screen
+- **Fully Private** — All data stored on-device via AsyncStorage, no account or internet required
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- **Expo SDK 54** with expo-router v6
+- **React Native** (iOS-first)
+- **AsyncStorage** for local persistence
+- **expo-haptics**, **expo-linear-gradient**, **react-native-svg**
+- **TypeScript**
 
-## Where things live
+## Run & Operate
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+```bash
+pnpm --filter @workspace/fitness-tracker run dev
+```
 
-## Architecture decisions
+## Project Structure
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+```
+artifacts/fitness-tracker/
+├── app/
+│   ├── (tabs)/
+│   │   ├── index.tsx        # Home dashboard
+│   │   ├── workout.tsx      # Workout session screen
+│   │   ├── progress.tsx     # Progress charts & stats
+│   │   └── body.tsx         # Body measurements
+│   ├── progress-report.tsx  # Full-screen progress report
+│   ├── onboarding.tsx       # 4-step setup flow
+│   └── settings.tsx         # App settings
+├── context/
+│   └── AppContext.tsx        # Global state (profile, logs, body entries)
+├── constants/
+│   ├── workouts.ts          # Exercise library & program definitions
+│   └── calories.ts          # MET-based calorie estimation
+└── app.json                 # Expo config (bundle ID: com.will-lawson.fittrack)
+```
 
-## Product
+## App Store
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Published on the Apple App Store as **RecordFit** by William Lawson.  
+Bundle ID: `com.will-lawson.fittrack`
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- App name: RecordFit (was FitTrack, renamed before App Store submission)
+- All data on-device only — no backend, no auth, no subscriptions
