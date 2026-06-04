@@ -1,8 +1,25 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "D8AdK3Fhj39bPAaz31qVG"
 uri = "file://artifacts/fitness-tracker/assets/images/icon.png"
 type = "image"
 title = "fittrack app icon"
+
+[[outputs]]
+id = "eN8mj9c6QkoNCys2EB04G"
+uri = "file://screenshots/recordfit-home.jpg"
+type = "image"
+title = "Screenshot 1 — Program Selection"
+
+[[outputs]]
+id = "sCFhNKw2WgHtfCmYQ1kd7"
+uri = "file://screenshots/recordfit-progress.jpg"
+type = "image"
+title = "Screenshot 2 — Progress Tab"
+
+[[outputs]]
+id = "qKjZx8lhXLxJIXu80RE4g"
+uri = "file://screenshots/recordfit-body.jpg"
+type = "image"
+title = "Screenshot 3 — Body Stats Tab"
