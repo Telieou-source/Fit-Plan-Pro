@@ -60,6 +60,10 @@ artifacts/fitness-tracker/
 
 Available on the Apple App Store as **RecordFit**.
 
+[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/app/id6776657014)
+
+**Direct link:** https://apps.apple.com/app/id6776657014
+
 ## License
 
 MIT
