@@ -542,10 +542,10 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, o
 export default function WorkoutScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, workoutPlan, workoutLogs, bodyEntries, saveWorkoutLog, getCurrentWorkoutDayIndex, customExercises } = useAppContext();
+  const { profile, effectivePlan, workoutPlan, workoutLogs, bodyEntries, saveWorkoutLog, getCurrentWorkoutDayIndex, customExercises } = useAppContext();
 
   const dayIndex = getCurrentWorkoutDayIndex();
-  const todayWorkout: WorkoutDay | null = workoutPlan[dayIndex] ?? null;
+  const todayWorkout: WorkoutDay | null = effectivePlan[dayIndex] ?? null;
   const today = todayStr();
 
   const existingLog = useMemo(() =>
