@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "28af5a54-69f4-4bdf-9064-02d23cb1aeb9"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.telieou.workspace",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
