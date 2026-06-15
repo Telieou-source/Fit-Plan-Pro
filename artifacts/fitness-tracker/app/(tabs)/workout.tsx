@@ -563,17 +563,19 @@ export default function WorkoutScreen() {
   const [timerAutoStart, setTimerAutoStart] = useState(false);
   const [timerOnComplete, setTimerOnComplete] = useState<(() => void) | undefined>(undefined);
 
+  const exerciseKey = todayWorkout?.exercises.map(e => e.id).join(',') ?? '';
+
   useEffect(() => {
     if (!existingLog && todayWorkout) {
       setExerciseLogs(initExerciseLogs(todayWorkout, workoutLogs));
     } else if (existingLog) {
       setExerciseLogs(existingLog.exerciseLogs);
     }
-  }, [todayWorkout?.id]);
+  }, [exerciseKey]);
 
   useEffect(() => {
     if (todayWorkout) setLocalExercises(todayWorkout.exercises);
-  }, [todayWorkout?.id]);
+  }, [exerciseKey]);
 
   const accentColor = profile ? PROGRAM_INFO[profile.programType].color : colors.primary;
   const completedCount = exerciseLogs.reduce((acc, el) => acc + el.sets.filter(s => s.completed).length, 0);
