@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -18,7 +19,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext, WorkoutLog, ExerciseLog, SetLog } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
-import { Exercise, WorkoutDay, PROGRAM_INFO, getProgramExercisePool } from '@/constants/workouts';
+import { Exercise, WorkoutDay, PROGRAM_INFO, getProgramExercisePool, EXERCISE_LIBRARY, LibraryExercise, libraryExToExercise } from '@/constants/workouts';
 import { openExerciseVideo } from '@/constants/exerciseLinks';
 import { estimateCalories } from '@/constants/calories';
 
@@ -542,9 +543,10 @@ function ExerciseCard({ exercise, log, onLogChange, accentColor, onTimerPress, o
 export default function WorkoutScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, effectivePlan, workoutPlan, workoutLogs, bodyEntries, saveWorkoutLog, getCurrentWorkoutDayIndex, customExercises } = useAppContext();
+  const { profile, effectivePlan, workoutPlan, workoutLogs, bodyEntries, saveWorkoutLog, getCurrentWorkoutDayIndex, customExercises, isRestDay } = useAppContext();
 
   const dayIndex = getCurrentWorkoutDayIndex();
+  const restDay = isRestDay();
   const todayWorkout: WorkoutDay | null = effectivePlan[dayIndex] ?? null;
   const today = todayStr();
 
@@ -562,6 +564,19 @@ export default function WorkoutScreen() {
   const [timerInitSecs, setTimerInitSecs] = useState(60);
   const [timerAutoStart, setTimerAutoStart] = useState(false);
   const [timerOnComplete, setTimerOnComplete] = useState<(() => void) | undefined>(undefined);
+
+  // ── Rest day ad-hoc workout state ──
+  const restDayExistingLog = useMemo(() =>
+    workoutLogs.find(l => l.date === today && l.workoutDayIndex === -1) ?? null,
+    [workoutLogs, today]
+  );
+  const [restDayExercises, setRestDayExercises] = useState<Exercise[]>(() => restDayExistingLog?.exerciseLogs.map(el => ({
+    id: el.exerciseId, name: el.exerciseName, targetSets: el.sets.length, unit: 'weight_reps' as const, muscleGroup: '',
+  })) ?? []);
+  const [restDayLogs, setRestDayLogs] = useState<ExerciseLog[]>(() => restDayExistingLog?.exerciseLogs ?? []);
+  const [restDayLogId] = useState(() => restDayExistingLog?.id ?? makeId());
+  const [showRestDayPicker, setShowRestDayPicker] = useState(false);
+  const [restDaySearch, setRestDaySearch] = useState('');
 
   const exerciseKey = todayWorkout?.exercises.map(e => e.id).join(',') ?? '';
 
@@ -660,6 +675,46 @@ export default function WorkoutScreen() {
     Alert.alert('Workout Complete! 🔥', `Great work! You burned approximately ${calories} calories.`);
   }, [todayWorkout, profile, bodyEntries, logId, today, dayIndex, exerciseLogs, saveWorkoutLog]);
 
+  const handleRestDaySave = useCallback(async () => {
+    if (restDayExercises.length === 0) return;
+    const log: WorkoutLog = { id: restDayLogId, date: today, workoutDayIndex: -1, exerciseLogs: restDayLogs, completed: false };
+    await saveWorkoutLog(log);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert('Saved', 'Your progress has been saved.');
+  }, [restDayExercises, restDayLogId, today, restDayLogs, saveWorkoutLog]);
+
+  const handleRestDayComplete = useCallback(async () => {
+    if (!profile || restDayExercises.length === 0) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const latestWeight = [...bodyEntries]
+      .filter(e => e.weight != null)
+      .sort((a, b) => b.date.localeCompare(a.date))[0]?.weight;
+    const calories = estimateCalories(
+      restDayLogs,
+      profile.programType,
+      profile.workoutDuration,
+      latestWeight ?? 154,
+      profile.gender,
+    );
+    const log: WorkoutLog = { id: restDayLogId, date: today, workoutDayIndex: -1, exerciseLogs: restDayLogs, completed: true, caloriesBurned: calories };
+    await saveWorkoutLog(log);
+    Alert.alert('Workout Complete! 🔥', `Great work! You burned approximately ${calories} calories.`);
+  }, [profile, bodyEntries, restDayLogId, today, restDayLogs, restDayExercises, saveWorkoutLog]);
+
+  const filteredRestDayLibrary = useMemo(() => {
+    if (!restDaySearch.trim()) return EXERCISE_LIBRARY;
+    const q = restDaySearch.toLowerCase();
+    return EXERCISE_LIBRARY.filter(e =>
+      e.name.toLowerCase().includes(q) || e.muscleGroup.toLowerCase().includes(q)
+    );
+  }, [restDaySearch]);
+
+  const filteredRestDayCustom = useMemo(() => {
+    if (!restDaySearch.trim()) return customExercises;
+    const q = restDaySearch.toLowerCase();
+    return customExercises.filter(e => e.name.toLowerCase().includes(q));
+  }, [restDaySearch, customExercises]);
+
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -668,6 +723,189 @@ export default function WorkoutScreen() {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Set up your program first.</Text>
       </View>
+    );
+  }
+
+  if (!todayWorkout && restDay) {
+    const restDayDone = restDayExistingLog?.completed ?? false;
+    return (
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={{ backgroundColor: colors.background }}
+          contentContainerStyle={[styles.scroll, { paddingTop: topPad + 12, paddingBottom: bottomPad + 100 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.workoutHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.dayLabel, { color: colors.mutedForeground }]}>REST DAY</Text>
+              <Text style={[styles.workoutTitle, { color: colors.foreground }]}>Active Recovery</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => openTimer(60)}
+              style={[styles.headerTimerBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Ionicons name="timer-outline" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.headerTimerText, { color: colors.mutedForeground }]}>Rest timer</Text>
+            </TouchableOpacity>
+          </View>
+
+          {restDayDone && (
+            <View style={[styles.doneBanner, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}>
+              <View style={styles.doneBannerLeft}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                <Text style={[styles.doneBannerText, { color: colors.primary }]}>Session recorded — great work!</Text>
+              </View>
+            </View>
+          )}
+
+          {restDayExercises.length === 0 && (
+            <View style={[styles.restDayEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="leaf-outline" size={32} color={colors.mutedForeground} style={{ marginBottom: 10 }} />
+              <Text style={[styles.restDayEmptyTitle, { color: colors.foreground }]}>Rest day — but you can still move!</Text>
+              <Text style={[styles.restDayEmptyText, { color: colors.mutedForeground }]}>Add stretches, yoga, a walk, or any light exercises you want to track today.</Text>
+            </View>
+          )}
+
+          <View style={styles.exercises}>
+            {restDayExercises.map((exercise, i) => (
+              <ExerciseCard
+                key={exercise.id}
+                exercise={exercise}
+                log={restDayLogs[i] ?? { exerciseId: exercise.id, exerciseName: exercise.name, sets: initSets(exercise, exercise.targetSets ?? 3) }}
+                onLogChange={updated => {
+                  const newLogs = [...restDayLogs];
+                  newLogs[i] = updated;
+                  setRestDayLogs(newLogs);
+                }}
+                accentColor={colors.primary}
+                onTimerPress={openTimer}
+                onShuffle={() => {}}
+                onToggleWeight={() => {
+                  setRestDayExercises(prev => prev.map((ex, idx) =>
+                    idx === i ? { ...ex, unit: ex.unit === 'bodyweight' ? 'weight_reps' : 'bodyweight' } : ex
+                  ));
+                }}
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity
+            onPress={() => { setRestDaySearch(''); setShowRestDayPicker(true); }}
+            style={[styles.addExBtn, { borderColor: colors.primary }]}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.addExBtnText, { color: colors.primary }]}>Add Exercise</Text>
+          </TouchableOpacity>
+
+          {restDayExercises.length > 0 && !restDayDone && (
+            <View style={styles.btnRow}>
+              <TouchableOpacity onPress={handleRestDaySave} style={[styles.saveBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <Ionicons name="save-outline" size={18} color={colors.foreground} />
+                <Text style={[styles.saveBtnText, { color: colors.foreground }]}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleRestDayComplete} style={[styles.completeBtn, { backgroundColor: colors.primary }]}>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                <Text style={styles.completeBtnText}>Mark Complete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+
+        <TimerModal
+          visible={timerVisible}
+          onClose={() => setTimerVisible(false)}
+          initialSecs={timerInitSecs}
+          autoStart={timerAutoStart}
+          accentColor={colors.primary}
+          onComplete={timerOnComplete}
+        />
+
+        <Modal
+          visible={showRestDayPicker}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowRestDayPicker(false)}
+        >
+          <View style={[styles.pickerModal, { backgroundColor: colors.background }]}>
+            <View style={[styles.pickerHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.pickerTitle, { color: colors.foreground }]}>Add Exercise</Text>
+              <TouchableOpacity onPress={() => setShowRestDayPicker(false)}>
+                <Ionicons name="close" size={24} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.pickerSearchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.pickerSearchInput, { color: colors.foreground }]}
+                placeholder="Search exercises..."
+                placeholderTextColor={colors.mutedForeground}
+                value={restDaySearch}
+                onChangeText={setRestDaySearch}
+              />
+              {restDaySearch.length > 0 && (
+                <TouchableOpacity onPress={() => setRestDaySearch('')}>
+                  <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <FlatList
+              data={filteredRestDayLibrary}
+              keyExtractor={item => item.id}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              ListHeaderComponent={
+                filteredRestDayCustom.length > 0 ? (
+                  <View>
+                    <Text style={[styles.pickerSectionLabel, { color: colors.mutedForeground }]}>MY EXERCISES</Text>
+                    {filteredRestDayCustom.map(ex => (
+                      <TouchableOpacity
+                        key={ex.id}
+                        style={[styles.pickerRow, { borderBottomColor: colors.border }]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          const newEx = ex;
+                          const newLog: ExerciseLog = { exerciseId: newEx.id, exerciseName: newEx.name, sets: initSets(newEx, newEx.targetSets ?? 3) };
+                          setRestDayExercises(prev => [...prev, newEx]);
+                          setRestDayLogs(prev => [...prev, newLog]);
+                          setShowRestDayPicker(false);
+                        }}
+                      >
+                        <View style={styles.pickerRowInfo}>
+                          <Text style={[styles.pickerRowName, { color: colors.foreground }]}>{ex.name}</Text>
+                          <Text style={[styles.pickerRowMeta, { color: colors.mutedForeground }]}>My exercises · {ex.targetSets} sets</Text>
+                        </View>
+                        <Ionicons name="add" size={22} color={colors.primary} />
+                      </TouchableOpacity>
+                    ))}
+                    <Text style={[styles.pickerSectionLabel, { color: colors.mutedForeground }]}>EXERCISE LIBRARY</Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.pickerSectionLabel, { color: colors.mutedForeground }]}>EXERCISE LIBRARY</Text>
+                )
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.pickerRow, { borderBottomColor: colors.border }]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    const newEx = libraryExToExercise(item);
+                    const newLog: ExerciseLog = { exerciseId: newEx.id, exerciseName: newEx.name, sets: initSets(newEx, newEx.targetSets) };
+                    setRestDayExercises(prev => [...prev, newEx]);
+                    setRestDayLogs(prev => [...prev, newLog]);
+                    setShowRestDayPicker(false);
+                  }}
+                >
+                  <View style={styles.pickerRowInfo}>
+                    <Text style={[styles.pickerRowName, { color: colors.foreground }]}>{item.name}</Text>
+                    <Text style={[styles.pickerRowMeta, { color: colors.mutedForeground }]}>{item.muscleGroup} · {item.defaultSets} sets{item.defaultReps ? ` · ${item.defaultReps}` : ''}</Text>
+                  </View>
+                  <Ionicons name="add" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </Modal>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -727,9 +965,10 @@ export default function WorkoutScreen() {
             <ExerciseCard
               key={exercise.id}
               exercise={exercise}
-              log={exerciseLogs[i] ?? { exerciseId: exercise.id, exerciseName: exercise.name, sets: [] }}
+              log={exerciseLogs[i] ?? { exerciseId: exercise.id, exerciseName: exercise.name, sets: initSets(exercise, exercise.targetSets ?? 3) }}
               onLogChange={updated => {
-                const newLogs = exerciseLogs.map((l, li) => li === i ? updated : l);
+                const newLogs = [...exerciseLogs];
+                newLogs[i] = updated;
                 setExerciseLogs(newLogs);
               }}
               accentColor={accentColor}
@@ -818,4 +1057,19 @@ const styles = StyleSheet.create({
   saveBtnText: { fontSize: 15, fontWeight: '600' },
   completeBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14 },
   completeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  restDayEmptyCard: { borderRadius: 16, borderWidth: 1, padding: 24, alignItems: 'center', marginBottom: 16 },
+  restDayEmptyTitle: { fontSize: 17, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
+  restDayEmptyText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  addExBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', marginTop: 12 },
+  addExBtnText: { fontSize: 15, fontWeight: '600' },
+  pickerModal: { flex: 1 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 20, borderBottomWidth: 1 },
+  pickerTitle: { fontSize: 18, fontWeight: '700' },
+  pickerSearchRow: { flexDirection: 'row', alignItems: 'center', margin: 12, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, height: 42, gap: 8 },
+  pickerSearchInput: { flex: 1, fontSize: 15, height: 42 },
+  pickerSectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
+  pickerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
+  pickerRowInfo: { flex: 1 },
+  pickerRowName: { fontSize: 15, fontWeight: '600' },
+  pickerRowMeta: { fontSize: 12, marginTop: 2 },
 });
