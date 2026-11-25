@@ -15,6 +15,12 @@ A full-featured iOS fitness tracker app built with Expo / React Native. Track wo
 - **Full Progress Report** — All stats consolidated in one scrollable report screen
 - **Fully Private** — All data stored on-device via AsyncStorage, no account or internet required
 
+## Screenshots
+
+| Home | Workout | Progress | Body |
+|---|---|---|---|
+| ![Home](screenshots/recordfit-home.jpg) | ![Workout](screenshots/recordfit-workout.jpg) | ![Progress](screenshots/recordfit-progress.jpg) | ![Body](screenshots/recordfit-body.jpg) |
+
 ## Stack
 
 - **Expo SDK 54** with expo-router v6
