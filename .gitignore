@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Replit pasted prompts/logs (may contain secrets)
+attached_assets/
